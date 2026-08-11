@@ -6,3 +6,6 @@ Desktop/
 *.suo
 *.user
 *.cache.venv/
+app.py
+desktop.py
+preview.png
