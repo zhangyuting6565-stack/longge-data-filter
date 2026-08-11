@@ -696,13 +696,27 @@ namespace NumMagic
         }
 
         // ── 按特征/类型移动 (简化, 实际按选中) ──
+        // 按特征移动 (数字长度: >=13长号码/11手机/<=10短号)
         void MoveByFeat(bool down)
         {
-            if (down) MoveSelUp(); else MoveSelDn();
+            var src = focusedPane == null || !focusedPane.Tag.ToString().StartsWith(down ? "UP" : "DN") ? null : (down ? sList : xList);
+            var dst = down ? xList : sList;
+            if (src == null) return;
+            var toMove = src.Where(n => n.Length >= 13).ToList();
+            dst.AddRange(toMove);
+            foreach (var n in toMove) src.Remove(n);
+            UpdateAllPanes();
         }
+        // 按类型移动 (国际号/中国手机/固话)
         void MoveByType(bool down)
         {
-            if (down) MoveSelUp(); else MoveSelDn();
+            var src = focusedPane == null || !focusedPane.Tag.ToString().StartsWith(down ? "UP" : "DN") ? null : (down ? sList : xList);
+            var dst = down ? xList : sList;
+            if (src == null) return;
+            var toMove = src.Where(n => !string.IsNullOrEmpty(n) && (n.StartsWith("+") || n.StartsWith("00")) && !n.StartsWith("+86")).ToList();
+            dst.AddRange(toMove);
+            foreach (var n in toMove) src.Remove(n);
+            UpdateAllPanes();
         }
 
         // ── 文件对比 ──
@@ -780,8 +794,10 @@ namespace NumMagic
         }
 
         // ── 区域/国家检测 ──
+        static Dictionary<string, string> _countryMap;
         static Dictionary<string, string> CountryMap()
         {
+            if (_countryMap != null) return _countryMap;
             var m = new Dictionary<string, string>();
             // 亚洲
             m["86"]="中国";m["852"]="香港";m["853"]="澳门";m["886"]="台湾";
@@ -806,6 +822,7 @@ namespace NumMagic
             m["57"]="哥伦比亚";m["51"]="秘鲁";m["56"]="智利";m["58"]="委内瑞拉";
             // 大洋洲
             m["61"]="澳大利亚";m["64"]="新西兰";
+            _countryMap = m;
             return m;
         }
 
@@ -841,19 +858,12 @@ namespace NumMagic
         {
             if (num.Length < 3) return "中国";
             string p3 = num.Substring(0, 3);
-            // 省份按号段归类 (工信部公开号段分配)
+            // 注意: 同一前缀可能分配给多个省份(号段重分配), 仅作为近似参考
             var prov = new Dictionary<string, string> {
-                // 北京: 134-139, 150-152, 157, 158, 178, 182, 184, 166, 185, 186, 189, 198
-                {"134","北京"},{"135","北京"},{"136","北京"},{"137","北京"},{"138","北京"},{"139","北京"},
-                // 上海
+                {"134","北京/广东/上海"},{"135","北京"},{"136","北京/广东"},{"137","北京"},{"138","北京/上海/广东/江苏"},{"139","北京/上海"},
                 {"150","上海"},{"151","上海"},{"152","上海"},
-                // 广东
-                {"153","广东"},{"155","广东"},{"156","广东"},{"157","广东"},{"158","广东"},{"159","广东"},
-                {"183","广东"},{"184","广东"},
-                // 浙江
-                {"159","浙江"},{"178","浙江"},
-                // 江苏
-                {"180","江苏"},{"181","江苏"},{"182","江苏"},
+                {"153","福建"},{"155","广东"},{"156","广东"},{"157","北京/广东"},{"158","广东"},{"159","广东/浙江"},
+                {"178","浙江"},{"180","江苏"},{"181","江苏"},{"182","江苏"},{"183","广东"},{"184","广东"},
             };
             if (prov.ContainsKey(p3)) return prov[p3];
             return "中国(" + p3 + ")";
@@ -942,18 +952,22 @@ namespace NumMagic
             var dlg = new FolderBrowserDialog { Description = "选择导出目录" };
             if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
             if (dlg.ShowDialog() != DialogResult.OK) return;
-            int batch = 1, per = 100000;
-            for (int i = 0; i < list.Count; i += per)
+            try
             {
-                int cnt = Math.Min(per, list.Count - i);
-                string fn = Path.Combine(dlg.SelectedPath,
-                    string.Format("batch_{0}_{1}.txt", batch, DateTime.Now.ToString("yyyyMMddHHmmss")));
-                File.WriteAllLines(fn, list.GetRange(i, cnt), Encoding.UTF8);
-                batch++;
+                int batch = 1, per = 100000;
+                for (int i = 0; i < list.Count; i += per)
+                {
+                    int cnt = Math.Min(per, list.Count - i);
+                    string fn = Path.Combine(dlg.SelectedPath,
+                        string.Format("batch_{0}_{1}.txt", batch, DateTime.Now.ToString("yyyyMMddHHmmss")));
+                    File.WriteAllLines(fn, list.GetRange(i, cnt), Encoding.UTF8);
+                    batch++;
+                }
+                outPath = dlg.SelectedPath;
+                IniWrite("OutPath", outPath);
+                MessageBox.Show(string.Format("分批导出完成: {0:n0} 条, {1} 个文件", list.Count, batch - 1), "完成");
             }
-            outPath = dlg.SelectedPath;
-            IniWrite("OutPath", outPath);
-            MessageBox.Show(string.Format("分批导出完成: {0:n0} 条, {1} 个文件", list.Count, batch - 1), "完成");
+            catch (Exception ex) { MessageBox.Show("导出失败: " + ex.Message, "错误"); }
         }
 
         void OnExportRgn(object s, EventArgs e)
@@ -964,29 +978,33 @@ namespace NumMagic
             if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
             if (dlg.ShowDialog() != DialogResult.OK) return;
 
-            var groups = new Dictionary<string, List<string>>();
-            foreach (string num in list)
+            try
             {
-                string region = GetRegion(num);
-                if (!groups.ContainsKey(region)) groups[region] = new List<string>();
-                groups[region].Add(num);
-            }
+                var groups = new Dictionary<string, List<string>>();
+                foreach (string num in list)
+                {
+                    string region = GetRegion(num);
+                    if (!groups.ContainsKey(region)) groups[region] = new List<string>();
+                    groups[region].Add(num);
+                }
 
-            var sb = new StringBuilder();
-            int total = 0;
-            foreach (var kv in groups)
-            {
-                string fname = kv.Key.Replace("/", "_").Replace("(", "").Replace(")", "");
-                string fn = Path.Combine(dlg.SelectedPath,
-                    string.Format("区域_{0}_{1}.txt", fname, DateTime.Now.ToString("yyyyMMddHHmmss")));
-                File.WriteAllLines(fn, kv.Value, Encoding.UTF8);
-                sb.AppendLine(string.Format("  {0}: {1:n0} 条", kv.Key, kv.Value.Count));
-                total += kv.Value.Count;
+                var sb = new StringBuilder();
+                int total = 0;
+                foreach (var kv in groups)
+                {
+                    string fname = kv.Key.Replace("/", "_").Replace("(", "").Replace(")", "");
+                    string fn = Path.Combine(dlg.SelectedPath,
+                        string.Format("区域_{0}_{1}.txt", fname, DateTime.Now.ToString("yyyyMMddHHmmss")));
+                    File.WriteAllLines(fn, kv.Value, Encoding.UTF8);
+                    sb.AppendLine(string.Format("  {0}: {1:n0} 条", kv.Key, kv.Value.Count));
+                    total += kv.Value.Count;
+                }
+                outPath = dlg.SelectedPath;
+                IniWrite("OutPath", outPath);
+                MessageBox.Show(string.Format("按区域导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
+                    sb.ToString(), total, groups.Count), "完成");
             }
-            outPath = dlg.SelectedPath;
-            IniWrite("OutPath", outPath);
-            MessageBox.Show(string.Format("按区域导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
-                sb.ToString(), total, groups.Count), "完成");
+            catch (Exception ex) { MessageBox.Show("导出失败: " + ex.Message, "错误"); }
         }
 
         void OnExportOprt(object s, EventArgs e)
@@ -997,48 +1015,33 @@ namespace NumMagic
             if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
             if (dlg.ShowDialog() != DialogResult.OK) return;
 
-            var groups = new Dictionary<string, List<string>>();
-            foreach (string num in list)
+            try
             {
-                string clean = num.Replace("+", "").Replace(" ", "").Replace("-", "");
-                if (clean.StartsWith("00")) clean = clean.Substring(2);
-                // 中国手机号 (去86前缀后11位1开头)
-                string label;
-                if (clean.StartsWith("86") && clean.Length >= 13)
+                var groups = new Dictionary<string, List<string>>();
+                foreach (string num in list)
                 {
-                    string cn = clean.Substring(2);
-                    if (cn.Length == 11 && cn.StartsWith("1"))
-                        label = "中国_" + GetCarrier(cn);
-                    else
-                        label = "中国_其他";
+                    string label = GetRegion(num);
+                    if (!groups.ContainsKey(label)) groups[label] = new List<string>();
+                    groups[label].Add(num);
                 }
-                else if (clean.Length == 11 && clean.StartsWith("1"))
-                {
-                    label = "中国_" + GetCarrier(clean);
-                }
-                else
-                {
-                    label = GetRegion(num);
-                }
-                if (!groups.ContainsKey(label)) groups[label] = new List<string>();
-                groups[label].Add(num);
-            }
 
-            var sb = new StringBuilder();
-            int total = 0;
-            foreach (var kv in groups)
-            {
-                string fname = kv.Key.Replace("/", "_");
-                string fn = Path.Combine(dlg.SelectedPath,
-                    string.Format("运营商_{0}_{1}.txt", fname, DateTime.Now.ToString("yyyyMMddHHmmss")));
-                File.WriteAllLines(fn, kv.Value, Encoding.UTF8);
-                sb.AppendLine(string.Format("  {0}: {1:n0} 条", kv.Key, kv.Value.Count));
-                total += kv.Value.Count;
+                var sb = new StringBuilder();
+                int total = 0;
+                foreach (var kv in groups)
+                {
+                    string fname = kv.Key.Replace("/", "_");
+                    string fn = Path.Combine(dlg.SelectedPath,
+                        string.Format("运营商_{0}_{1}.txt", fname, DateTime.Now.ToString("yyyyMMddHHmmss")));
+                    File.WriteAllLines(fn, kv.Value, Encoding.UTF8);
+                    sb.AppendLine(string.Format("  {0}: {1:n0} 条", kv.Key, kv.Value.Count));
+                    total += kv.Value.Count;
+                }
+                outPath = dlg.SelectedPath;
+                IniWrite("OutPath", outPath);
+                MessageBox.Show(string.Format("按运营商导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
+                    sb.ToString(), total, groups.Count), "完成");
             }
-            outPath = dlg.SelectedPath;
-            IniWrite("OutPath", outPath);
-            MessageBox.Show(string.Format("按运营商导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
-                sb.ToString(), total, groups.Count), "完成");
+            catch (Exception ex) { MessageBox.Show("导出失败: " + ex.Message, "错误"); }
         }
 
         // ── 帮助 ──
