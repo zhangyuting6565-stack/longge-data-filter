@@ -6,8 +6,8 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Windows.Forms;
 using System.ComponentModel;
+using System.Windows.Forms;
 
 namespace NumMagic
 {
@@ -75,6 +75,17 @@ namespace NumMagic
             KeyPreview = true;
             KeyDown += OnKeyDown;
             FormClosing += OnFormClosing;
+            // 启动时自动加载上次保存的数据
+            string dataFile = Path.Combine(Application.StartupPath, "data.txt");
+            if (File.Exists(dataFile))
+            {
+                try
+                {
+                    sList.AddRange(File.ReadAllLines(dataFile, Encoding.UTF8));
+                    lInfo.Text = string.Format("已恢复 {0:n0} 条", sList.Count);
+                }
+                catch { }
+            }
             UpdateAllPanes();
         }
 
@@ -332,6 +343,7 @@ namespace NumMagic
             Application.DoEvents();
         }
         void HideProgress() { progress.Visible = false; }
+        void EnableUI(bool enable) { Enabled = enable; }
 
         // ── 乱序 ── Fisher-Yates 原地 O(n)
         static void Shuffle(List<string> list)
@@ -344,26 +356,34 @@ namespace NumMagic
             }
         }
 
-        // ── 排序 ──
+        // ── 排序 (异步, 百万级不卡 UI) ──
         void OnSortUp(object sender, EventArgs e)
         {
             sortAsc = !sortAsc;
             bSort.Text = sortAsc ? "排序↑" : "排序↓";
-            ShowProgress("排序中...", 0);
-            sList.Sort(sortAsc ? (Comparison<string>)((a, b) => string.Compare(a, b, StringComparison.Ordinal))
-                               : (Comparison<string>)((a, b) => string.Compare(b, a, StringComparison.Ordinal)));
-            HideProgress();
-            UpdateAllPanes();
+            EnableUI(false);
+            var bw = new BackgroundWorker();
+            bw.DoWork += (s2, e2) =>
+            {
+                sList.Sort(sortAsc ? (Comparison<string>)((a, b) => string.Compare(a, b, StringComparison.Ordinal))
+                                   : (Comparison<string>)((a, b) => string.Compare(b, a, StringComparison.Ordinal)));
+            };
+            bw.RunWorkerCompleted += (s2, e2) => { EnableUI(true); UpdateAllPanes(); };
+            bw.RunWorkerAsync();
         }
         void OnSortDn(object sender, EventArgs e)
         {
             sort2Asc = !sort2Asc;
             bSort2.Text = sort2Asc ? "排序↑" : "排序↓";
-            ShowProgress("排序中...", 0);
-            xList.Sort(sort2Asc ? (Comparison<string>)((a, b) => string.Compare(a, b, StringComparison.Ordinal))
-                                : (Comparison<string>)((a, b) => string.Compare(b, a, StringComparison.Ordinal)));
-            HideProgress();
-            UpdateAllPanes();
+            EnableUI(false);
+            var bw = new BackgroundWorker();
+            bw.DoWork += (s2, e2) =>
+            {
+                xList.Sort(sort2Asc ? (Comparison<string>)((a, b) => string.Compare(a, b, StringComparison.Ordinal))
+                                    : (Comparison<string>)((a, b) => string.Compare(b, a, StringComparison.Ordinal)));
+            };
+            bw.RunWorkerCompleted += (s2, e2) => { EnableUI(true); UpdateAllPanes(); };
+            bw.RunWorkerAsync();
         }
 
         // ── 键盘 ──
@@ -376,11 +396,18 @@ namespace NumMagic
         // ── 关闭 ──
         void OnFormClosing(object sender, FormClosingEventArgs e)
         {
-            string autoSave = IniRead("AutoSave", "0");
-            if (autoSave == "1" && sList.Count > 0)
+            // 自动保存数据 (启动时恢复)
+            string dataFile = Path.Combine(Application.StartupPath, "data.txt");
+            int total = sList.Count + xList.Count;
+            if (total > 0)
             {
-                string dataFile = Path.Combine(Application.StartupPath, "data.txt");
-                try { File.WriteAllLines(dataFile, sList.Distinct(), Encoding.UTF8); } catch { }
+                try
+                {
+                    var all = new List<string>(sList);
+                    all.AddRange(xList);
+                    File.WriteAllLines(dataFile, all.Distinct(), Encoding.UTF8);
+                }
+                catch { }
             }
         }
 
@@ -518,7 +545,8 @@ namespace NumMagic
                     }
                 }
             }
-            sList.AddRange(newList);
+            sList.AddRange(newList.Distinct());
+            if (sList.Count > 0) { lInfo.Text = string.Format("原始区: {0:n0} 条", sList.Count); }
             HideProgress();
             Enabled = true;
             UpdateAllPanes();
