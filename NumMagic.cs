@@ -862,10 +862,11 @@ namespace NumMagic
         // 去前缀 提取纯净号码 + 区域标签
         string GetRegion(string num)
         {
-            string clean = num.Replace("+", "").Replace(" ", "").Replace("-", "");
+            string raw = num.Replace(" ", "").Replace("-", "");
+            string clean = raw.Replace("+", "");
+            bool hasIntlPrefix = raw.StartsWith("+") || raw.StartsWith("00");
             if (clean.StartsWith("00")) clean = clean.Substring(2);
 
-            // ⚠️ 中国号码必须在国家码匹配之前判断
             // 86前缀: +86138... 或 0086138...
             if (clean.StartsWith("86") && clean.Length >= 13)
             {
@@ -876,15 +877,14 @@ namespace NumMagic
                     return "中国(固话)";
                 return "中国";
             }
-            // 无前缀中国手机号: 1[3-9]xxxxxxxx (US是1[2-9][0-9]xxxxxxx)
-            if (clean.Length == 11 && clean[0] == '1' && clean[1] >= '3' && clean[1] <= '9')
+            // 无前缀中国手机号: 1[3-9]xxxxxxxx (仅在没有+前缀时生效)
+            if (!hasIntlPrefix && clean.Length == 11 && clean[0] == '1' && clean[1] >= '3' && clean[1] <= '9')
                 return "中国(手机)";
-            // 中国固话: 010-12345678
-            if (clean.StartsWith("0") && clean.Length >= 10)
+            // 中国固话
+            if (!hasIntlPrefix && clean.StartsWith("0") && clean.Length >= 10)
                 return "中国(固话)";
 
             var cmap = CountryMap();
-            // 按长度降序匹配
             var keys = new List<string>(cmap.Keys);
             keys.Sort((a, b) => b.Length.CompareTo(a.Length));
             foreach (string code in keys)
@@ -898,19 +898,19 @@ namespace NumMagic
         // 判断是否中国号码
         bool IsChineseNumber(string num)
         {
-            string clean = num.Replace("+", "").Replace(" ", "").Replace("-", "");
+            string raw = num.Replace(" ", "").Replace("-", "");
+            string clean = raw.Replace("+", "");
+            bool hasIntlPrefix = raw.StartsWith("+") || raw.StartsWith("00");
             // 0086 → 中国; 001/0044 → 非中国
             if (clean.StartsWith("00"))
             {
                 string after = clean.Substring(2);
-                return after.StartsWith("86");  // 仅 0086 是中国
+                return after.StartsWith("86");
             }
-            // +86 或无前缀 86
             if (clean.StartsWith("86") && clean.Length >= 13) return true;
-            // 无前缀 11位 1[3-9] 手机号
-            if (clean.Length == 11 && clean[0] == '1' && clean[1] >= '3' && clean[1] <= '9') return true;
-            // 0开头 固话
-            if (clean.StartsWith("0") && clean.Length >= 10) return true;
+            // 无前缀 11位 1[3-9] 手机号 (有+前缀的不在此列)
+            if (!hasIntlPrefix && clean.Length == 11 && clean[0] == '1' && clean[1] >= '3' && clean[1] <= '9') return true;
+            if (!hasIntlPrefix && clean.StartsWith("0") && clean.Length >= 10) return true;
             return false;
         }
 
