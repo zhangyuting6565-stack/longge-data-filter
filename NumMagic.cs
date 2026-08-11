@@ -420,10 +420,15 @@ namespace NumMagic
             for (int i = 0; i < trimmed.Length; i++)
             {
                 char c = trimmed[i];
-                if (c == ' ' || c == '-' || c == '+' || c == '(' || c == ')' || c == '.' || c == ',') continue;
+                if (c == ' ' || c == '\t' || c == '-' || c == '+' || c == '(' || c == ')' || c == '.' || c == ',') continue;
                 sb.Append(c);
             }
             return sb.ToString();
+        }
+        static bool IsAllDigits(string s)
+        {
+            for (int i = 0; i < s.Length; i++) if (s[i] < '0' || s[i] > '9') return false;
+            return true;
         }
 
         // ── 插入前缀 ──
@@ -534,6 +539,7 @@ namespace NumMagic
             int estLines = (int)Math.Min(fi.Length / 15, int.MaxValue);
             if (estLines > 200000000) { MessageBox.Show("文件过大 (>2亿行), 建议分批导入", "警告"); Enabled = true; return; }
             var newList = new List<string>(Math.Max(estLines, 10000));
+            int skipped = 0;
             try
             {
                 using (var sr = new StreamReader(dlg.FileName, Encoding.UTF8))
@@ -542,21 +548,28 @@ namespace NumMagic
                     while ((line = sr.ReadLine()) != null)
                     {
                         var num = Clean(line);
-                        if (num.Length > 0) newList.Add(num);
-                        if (newList.Count % 50000 == 0) ShowProgress(string.Format("已读 {0:n0} 行...", newList.Count), 0);
+                        if (num.Length > 0)
+                        {
+                            if (IsAllDigits(num)) newList.Add(num); else skipped++;
+                        }
+                        if ((newList.Count + skipped) % 50000 == 0) ShowProgress(string.Format("已读 {0:n0} 行...", newList.Count + skipped), 0);
                     }
                 }
             }
             catch
             {
+                newList.Clear(); skipped = 0;
                 using (var sr = new StreamReader(dlg.FileName, Encoding.GetEncoding("GBK")))
                 {
                     string line;
                     while ((line = sr.ReadLine()) != null)
                     {
                         var num = Clean(line);
-                        if (num.Length > 0) newList.Add(num);
-                        if (newList.Count % 50000 == 0) ShowProgress(string.Format("已读 {0:n0} 行...", newList.Count), 0);
+                        if (num.Length > 0)
+                        {
+                            if (IsAllDigits(num)) newList.Add(num); else skipped++;
+                        }
+                        if ((newList.Count + skipped) % 50000 == 0) ShowProgress(string.Format("已读 {0:n0} 行...", newList.Count + skipped), 0);
                     }
                 }
             }
@@ -565,7 +578,8 @@ namespace NumMagic
             HideProgress();
             Enabled = true;
             UpdateAllPanes();
-            MessageBox.Show(string.Format("导入完成: {0:n0} 条", newList.Count), "完成");
+            string skipMsg = skipped > 0 ? string.Format(", 跳过 {0:n0} 非数字行", skipped) : "";
+            MessageBox.Show(string.Format("导入完成: {0:n0} 条{1}", newList.Distinct().Count(), skipMsg), "完成");
         }
 
         void ImportText(string text)
