@@ -876,8 +876,8 @@ namespace NumMagic
                     return "中国(固话)";
                 return "中国";
             }
-            // 无前缀中国手机号: 13812345678
-            if (clean.Length == 11 && clean.StartsWith("1"))
+            // 无前缀中国手机号: 1[3-9]xxxxxxxx (US是1[2-9][0-9]xxxxxxx)
+            if (clean.Length == 11 && clean[0] == '1' && clean[1] >= '3' && clean[1] <= '9')
                 return "中国(手机)";
             // 中国固话: 010-12345678
             if (clean.StartsWith("0") && clean.Length >= 10)
@@ -907,8 +907,8 @@ namespace NumMagic
             }
             // +86 或无前缀 86
             if (clean.StartsWith("86") && clean.Length >= 13) return true;
-            // 无前缀 11位 1开头 手机号
-            if (clean.Length == 11 && clean.StartsWith("1")) return true;
+            // 无前缀 11位 1[3-9] 手机号
+            if (clean.Length == 11 && clean[0] == '1' && clean[1] >= '3' && clean[1] <= '9') return true;
             // 0开头 固话
             if (clean.StartsWith("0") && clean.Length >= 10) return true;
             return false;
