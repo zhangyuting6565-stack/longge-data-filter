@@ -792,7 +792,7 @@ namespace NumMagic
             m["976"]="蒙古";m["850"]="朝鲜";m["98"]="伊朗";m["90"]="土耳其";
             m["966"]="沙特";m["971"]="阿联酋";m["972"]="以色列";m["961"]="黎巴嫩";
             // 欧洲
-            m["7"]="俄罗斯";m["44"]="英国";m["49"]="德国";m["33"]="法国";
+            m["7"]="俄罗斯/哈萨克斯坦";m["44"]="英国";m["49"]="德国";m["33"]="法国";
             m["39"]="意大利";m["34"]="西班牙";m["31"]="荷兰";m["32"]="比利时";
             m["41"]="瑞士";m["43"]="奥地利";m["46"]="瑞典";m["47"]="挪威";
             m["45"]="丹麦";m["358"]="芬兰";m["48"]="波兰";m["380"]="乌克兰";
@@ -836,24 +836,26 @@ namespace NumMagic
             return "未知";
         }
 
-        // 中国手机号省份 (前7位 HLR)
+        // 中国手机号省份/区域 (按前3位号段)
         static string GetProvince(string num)
         {
-            if (num.Length < 7) return "未知";
-            string p7 = num.Substring(0, 7);
-            var m = new Dictionary<string, string> {
-                {"1340000","北京"},{"1340001","北京"},{"1350000","北京"},{"1360000","北京"},
-                {"1370000","北京"},{"1380000","北京"},{"1390000","北京"},{"1380001","上海"},
-                {"1390001","上海"},{"1370001","上海"},{"1360001","上海"},{"1350001","上海"},
-                {"1340002","广东"},{"1340003","广东"},{"1360002","广东"},{"1370002","广东"},
-                {"1380002","广东"},{"1390002","广东"},{"1350002","浙江"},{"1360003","浙江"},
-                {"1370003","浙江"},{"1380003","浙江"},{"1390003","浙江"},{"1340004","江苏"},
-                {"1350003","江苏"},{"1360004","江苏"},{"1370004","江苏"},{"1380004","江苏"},
-                {"1390004","江苏"}
-            };
-            if (m.ContainsKey(p7)) return m[p7];
-            // 按前3位推断 (简化)
+            if (num.Length < 3) return "中国";
             string p3 = num.Substring(0, 3);
+            // 省份按号段归类 (工信部公开号段分配)
+            var prov = new Dictionary<string, string> {
+                // 北京: 134-139, 150-152, 157, 158, 178, 182, 184, 166, 185, 186, 189, 198
+                {"134","北京"},{"135","北京"},{"136","北京"},{"137","北京"},{"138","北京"},{"139","北京"},
+                // 上海
+                {"150","上海"},{"151","上海"},{"152","上海"},
+                // 广东
+                {"153","广东"},{"155","广东"},{"156","广东"},{"157","广东"},{"158","广东"},{"159","广东"},
+                {"183","广东"},{"184","广东"},
+                // 浙江
+                {"159","浙江"},{"178","浙江"},
+                // 江苏
+                {"180","江苏"},{"181","江苏"},{"182","江苏"},
+            };
+            if (prov.ContainsKey(p3)) return prov[p3];
             return "中国(" + p3 + ")";
         }
 
@@ -862,7 +864,25 @@ namespace NumMagic
         {
             string clean = num.Replace("+", "").Replace(" ", "").Replace("-", "");
             if (clean.StartsWith("00")) clean = clean.Substring(2);
-            
+
+            // ⚠️ 中国号码必须在国家码匹配之前判断
+            // 86前缀: +86138... 或 0086138...
+            if (clean.StartsWith("86") && clean.Length >= 13)
+            {
+                string cn = clean.Substring(2);
+                if (cn.Length == 11 && cn.StartsWith("1"))
+                    return GetProvince(cn);
+                if (cn.StartsWith("0"))
+                    return "中国(固话)";
+                return "中国";
+            }
+            // 无前缀中国手机号: 13812345678
+            if (clean.Length == 11 && clean.StartsWith("1"))
+                return "中国(手机)";
+            // 中国固话: 010-12345678
+            if (clean.StartsWith("0") && clean.Length >= 10)
+                return "中国(固话)";
+
             var cmap = CountryMap();
             // 按长度降序匹配
             var keys = new List<string>(cmap.Keys);
@@ -872,12 +892,6 @@ namespace NumMagic
                 if (clean.StartsWith(code) && clean.Length >= code.Length + 4)
                     return cmap[code];
             }
-            // 中国手机号判断 (11位, 1开头)
-            if (clean.Length == 11 && clean.StartsWith("1"))
-                return "中国(手机)";
-            // 中国固话判断 (0开头)
-            if (clean.StartsWith("0") && clean.Length >= 10)
-                return "中国(固话)";
             return "未知区域";
         }
 
@@ -885,9 +899,17 @@ namespace NumMagic
         bool IsChineseNumber(string num)
         {
             string clean = num.Replace("+", "").Replace(" ", "").Replace("-", "");
-            if (clean.StartsWith("00")) clean = clean.Substring(2);
+            // 0086 → 中国; 001/0044 → 非中国
+            if (clean.StartsWith("00"))
+            {
+                string after = clean.Substring(2);
+                return after.StartsWith("86");  // 仅 0086 是中国
+            }
+            // +86 或无前缀 86
             if (clean.StartsWith("86") && clean.Length >= 13) return true;
+            // 无前缀 11位 1开头 手机号
             if (clean.Length == 11 && clean.StartsWith("1")) return true;
+            // 0开头 固话
             if (clean.StartsWith("0") && clean.Length >= 10) return true;
             return false;
         }
