@@ -779,10 +779,112 @@ namespace NumMagic
             MessageBox.Show(result, "报告");
         }
 
-        // ── 导出 ──
+        // ── 区域/国家检测 ──
+        static Dictionary<string, string> CountryMap()
+        {
+            var m = new Dictionary<string, string>();
+            // 亚洲
+            m["86"]="中国";m["852"]="香港";m["853"]="澳门";m["886"]="台湾";
+            m["81"]="日本";m["82"]="韩国";m["84"]="越南";m["66"]="泰国";
+            m["62"]="印尼";m["60"]="马来西亚";m["63"]="菲律宾";m["65"]="新加坡";
+            m["91"]="印度";m["92"]="巴基斯坦";m["95"]="缅甸";m["855"]="柬埔寨";
+            m["856"]="老挝";m["880"]="孟加拉";m["94"]="斯里兰卡";m["977"]="尼泊尔";
+            m["976"]="蒙古";m["850"]="朝鲜";m["98"]="伊朗";m["90"]="土耳其";
+            m["966"]="沙特";m["971"]="阿联酋";m["972"]="以色列";m["961"]="黎巴嫩";
+            // 欧洲
+            m["7"]="俄罗斯";m["44"]="英国";m["49"]="德国";m["33"]="法国";
+            m["39"]="意大利";m["34"]="西班牙";m["31"]="荷兰";m["32"]="比利时";
+            m["41"]="瑞士";m["43"]="奥地利";m["46"]="瑞典";m["47"]="挪威";
+            m["45"]="丹麦";m["358"]="芬兰";m["48"]="波兰";m["380"]="乌克兰";
+            m["375"]="白俄罗斯";m["40"]="罗马尼亚";m["36"]="匈牙利";m["420"]="捷克";
+            m["421"]="斯洛伐克";m["30"]="希腊";m["351"]="葡萄牙";m["353"]="爱尔兰";
+            // 非洲
+            m["20"]="埃及";m["234"]="尼日利亚";m["254"]="肯尼亚";m["27"]="南非";
+            m["233"]="加纳";m["256"]="乌干达";m["255"]="坦桑尼亚";m["251"]="埃塞俄比亚";
+            // 美洲
+            m["1"]="美国/加拿大";m["52"]="墨西哥";m["55"]="巴西";m["54"]="阿根廷";
+            m["57"]="哥伦比亚";m["51"]="秘鲁";m["56"]="智利";m["58"]="委内瑞拉";
+            // 大洋洲
+            m["61"]="澳大利亚";m["64"]="新西兰";
+            return m;
+        }
+
+        // 中国手机运营商检测 (前3位)
+        static string GetCarrier(string num)
+        {
+            if (num.Length < 3) return "未知";
+            string p3 = num.Substring(0, 3);
+            // 移动
+            if (p3 == "134" || (string.Compare(p3, "135") >= 0 && string.Compare(p3, "139") <= 0) ||
+                p3 == "147" || p3 == "148" || p3 == "150" || p3 == "151" || p3 == "152" ||
+                p3 == "157" || p3 == "158" || p3 == "159" || p3 == "165" || p3 == "172" ||
+                p3 == "178" || p3 == "182" || p3 == "183" || p3 == "184" || p3 == "187" ||
+                p3 == "188" || p3 == "195" || p3 == "197" || p3 == "198")
+                return "中国移动";
+            // 联通
+            if (p3 == "130" || p3 == "131" || p3 == "132" || p3 == "145" || p3 == "146" ||
+                p3 == "155" || p3 == "156" || p3 == "166" || p3 == "167" || p3 == "171" ||
+                p3 == "175" || p3 == "176" || p3 == "185" || p3 == "186" || p3 == "196")
+                return "中国联通";
+            // 电信
+            if (p3 == "133" || p3 == "141" || p3 == "149" || p3 == "153" || p3 == "162" ||
+                p3 == "170" || p3 == "173" || p3 == "174" || p3 == "177" || p3 == "180" ||
+                p3 == "181" || p3 == "189" || p3 == "190" || p3 == "191" || p3 == "193" || p3 == "199")
+                return "中国电信";
+            // 广电
+            if (p3 == "192") return "中国广电";
+            return "未知";
+        }
+
+        // 中国手机号省份 (前7位 HLR)
+        static string GetProvince(string num)
+        {
+            if (num.Length < 7) return "未知";
+            string p7 = num.Substring(0, 7);
+            var m = new Dictionary<string, string> {
+                {"1340000","北京"},{"1340001","北京"},{"1350000","北京"},{"1360000","北京"},
+                {"1370000","北京"},{"1380000","北京"},{"1390000","北京"},{"1380001","上海"},
+                {"1390001","上海"},{"1370001","上海"},{"1360001","上海"},{"1350001","上海"},
+                {"1340002","广东"},{"1340003","广东"},{"1360002","广东"},{"1370002","广东"},
+                {"1380002","广东"},{"1390002","广东"},{"1350002","浙江"},{"1360003","浙江"},
+                {"1370003","浙江"},{"1380003","浙江"},{"1390003","浙江"},{"1340004","江苏"},
+                {"1350003","江苏"},{"1360004","江苏"},{"1370004","江苏"},{"1380004","江苏"},
+                {"1390004","江苏"}
+            };
+            if (m.ContainsKey(p7)) return m[p7];
+            // 按前3位推断 (简化)
+            string p3 = num.Substring(0, 3);
+            return "中国(" + p3 + ")";
+        }
+
+        // 去前缀 提取纯净号码 + 区域标签
+        string GetRegion(string num)
+        {
+            string clean = num.Replace("+", "").Replace(" ", "").Replace("-", "");
+            if (clean.StartsWith("00")) clean = clean.Substring(2);
+            
+            var cmap = CountryMap();
+            // 按长度降序匹配
+            var keys = new List<string>(cmap.Keys);
+            keys.Sort((a, b) => b.Length.CompareTo(a.Length));
+            foreach (string code in keys)
+            {
+                if (clean.StartsWith(code) && clean.Length >= code.Length + 4)
+                    return cmap[code];
+            }
+            // 中国手机号判断 (11位, 1开头)
+            if (clean.Length == 11 && clean.StartsWith("1"))
+                return "中国(手机)";
+            // 中国固话判断 (0开头)
+            if (clean.StartsWith("0") && clean.Length >= 10)
+                return "中国(固话)";
+            return "未知区域";
+        }
+
         void ExportList(List<string> list, string desc)
         {
-            var dlg = new SaveFileDialog { Title = desc, Filter = "文本文件|*.txt", FileName = desc.Replace(" ", "_") + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") };
+            var dlg = new SaveFileDialog { Title = desc, Filter = "文本文件|*.txt",
+                FileName = desc.Replace(" ", "_") + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") };
             if (!string.IsNullOrEmpty(outPath)) dlg.InitialDirectory = outPath;
             if (dlg.ShowDialog() != DialogResult.OK) return;
             try
@@ -794,10 +896,11 @@ namespace NumMagic
             }
             catch (Exception ex) { MessageBox.Show("导出失败: " + ex.Message, "错误"); }
         }
+
         void OnExportAll(object s, EventArgs e) { ExportList(xList, "导出全部"); }
+
         void OnExportBatch(object s, EventArgs e)
         {
-            // 分批导出：每10万一个文件
             if (xList.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
             var dlg = new FolderBrowserDialog { Description = "选择导出目录" };
             if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
@@ -806,7 +909,8 @@ namespace NumMagic
             for (int i = 0; i < xList.Count; i += per)
             {
                 int cnt = Math.Min(per, xList.Count - i);
-                string fn = Path.Combine(dlg.SelectedPath, string.Format("batch_{0}_{1}.txt", batch, DateTime.Now.ToString("yyyyMMddHHmmss")));
+                string fn = Path.Combine(dlg.SelectedPath,
+                    string.Format("batch_{0}_{1}.txt", batch, DateTime.Now.ToString("yyyyMMddHHmmss")));
                 File.WriteAllLines(fn, xList.GetRange(i, cnt), Encoding.UTF8);
                 batch++;
             }
@@ -814,8 +918,89 @@ namespace NumMagic
             IniWrite("OutPath", outPath);
             MessageBox.Show(string.Format("分批导出完成: {0:n0} 条, {1} 个文件", xList.Count, batch - 1), "完成");
         }
-        void OnExportRgn(object s, EventArgs e) { ExportList(xList, "按区域导出"); }
-        void OnExportOprt(object s, EventArgs e) { ExportList(xList, "按运营商导出"); }
+
+        void OnExportRgn(object s, EventArgs e)
+        {
+            if (xList.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
+            var dlg = new FolderBrowserDialog { Description = "选择按区域导出目录" };
+            if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
+            if (dlg.ShowDialog() != DialogResult.OK) return;
+
+            var groups = new Dictionary<string, List<string>>();
+            foreach (string num in xList)
+            {
+                string region = GetRegion(num);
+                if (!groups.ContainsKey(region)) groups[region] = new List<string>();
+                groups[region].Add(num);
+            }
+
+            var sb = new StringBuilder();
+            int total = 0;
+            foreach (var kv in groups)
+            {
+                string fname = kv.Key.Replace("/", "_").Replace("(", "").Replace(")", "");
+                string fn = Path.Combine(dlg.SelectedPath,
+                    string.Format("区域_{0}_{1}.txt", fname, DateTime.Now.ToString("yyyyMMddHHmmss")));
+                File.WriteAllLines(fn, kv.Value, Encoding.UTF8);
+                sb.AppendLine(string.Format("  {0}: {1:n0} 条", kv.Key, kv.Value.Count));
+                total += kv.Value.Count;
+            }
+            outPath = dlg.SelectedPath;
+            IniWrite("OutPath", outPath);
+            MessageBox.Show(string.Format("按区域导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
+                sb.ToString(), total, groups.Count), "完成");
+        }
+
+        void OnExportOprt(object s, EventArgs e)
+        {
+            if (xList.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
+            var dlg = new FolderBrowserDialog { Description = "选择按运营商导出目录" };
+            if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
+            if (dlg.ShowDialog() != DialogResult.OK) return;
+
+            var groups = new Dictionary<string, List<string>>();
+            foreach (string num in xList)
+            {
+                string clean = num.Replace("+", "").Replace(" ", "").Replace("-", "");
+                if (clean.StartsWith("00")) clean = clean.Substring(2);
+                // 中国手机号 (去86前缀后11位1开头)
+                string label;
+                if (clean.StartsWith("86") && clean.Length >= 13)
+                {
+                    string cn = clean.Substring(2);
+                    if (cn.Length == 11 && cn.StartsWith("1"))
+                        label = "中国_" + GetCarrier(cn);
+                    else
+                        label = "中国_其他";
+                }
+                else if (clean.Length == 11 && clean.StartsWith("1"))
+                {
+                    label = "中国_" + GetCarrier(clean);
+                }
+                else
+                {
+                    label = GetRegion(num);
+                }
+                if (!groups.ContainsKey(label)) groups[label] = new List<string>();
+                groups[label].Add(num);
+            }
+
+            var sb = new StringBuilder();
+            int total = 0;
+            foreach (var kv in groups)
+            {
+                string fname = kv.Key.Replace("/", "_");
+                string fn = Path.Combine(dlg.SelectedPath,
+                    string.Format("运营商_{0}_{1}.txt", fname, DateTime.Now.ToString("yyyyMMddHHmmss")));
+                File.WriteAllLines(fn, kv.Value, Encoding.UTF8);
+                sb.AppendLine(string.Format("  {0}: {1:n0} 条", kv.Key, kv.Value.Count));
+                total += kv.Value.Count;
+            }
+            outPath = dlg.SelectedPath;
+            IniWrite("OutPath", outPath);
+            MessageBox.Show(string.Format("按运营商导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
+                sb.ToString(), total, groups.Count), "完成");
+        }
 
         // ── 帮助 ──
         void OnHelp(object sender, EventArgs e)
