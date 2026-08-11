@@ -40,7 +40,6 @@ namespace NumMagic
         int paneW;                           // 每窗宽度
         int rowH = 95;                       // 每行高度
         bool showAll = false;
-        bool exclChina = true;  // 默认排除中国
         Label lShowMore, lCnt1, lCnt2, lInfo, lTitle;
         ProgressBar progress;
         BackgroundWorker worker;
@@ -200,12 +199,9 @@ namespace NumMagic
             var cbShowAll = new CheckBox { Text = "显示超上限(>1000万)", Left = pad + (exw + exg) * 4 + 20, Top = botY + 22, AutoSize = true };
             cbShowAll.CheckedChanged += (s, e) => { showAll = cbShowAll.Checked; UpdateAllPanes(); };
             Controls.Add(cbShowAll);
-            var cbExclCN = new CheckBox { Text = "排除中国", Left = pad + (exw + exg) * 4 + 20, Top = botY + 42, AutoSize = true, Checked = true };
-            cbExclCN.CheckedChanged += (s, e) => { exclChina = cbExclCN.Checked; };
-            Controls.Add(cbExclCN);
 
             progress = new ProgressBar {
-                Left = pad, Top = botY + 62, Width = W - pad * 2, Height = 18,
+                Left = pad, Top = botY + 44, Width = W - pad * 2, Height = 18,
                 Minimum = 0, Maximum = 100, Visible = false, Style = ProgressBarStyle.Continuous
             };
             Controls.Add(progress);
@@ -913,18 +909,13 @@ namespace NumMagic
         }
 
         void OnExportAll(object s, EventArgs e) {
-            var list = exclChina ? xList.Where(n => !IsChineseNumber(n)).ToList() : xList;
-            if (exclChina) {
-                int skipped = xList.Count - list.Count;
-                ExportList(list, "导出全部(排除中国)");
-                MessageBox.Show(string.Format("已排除中国 {0:n0} 条", skipped), "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            } else ExportList(list, "导出全部");
+            var list = xList.Where(n => !IsChineseNumber(n)).ToList();
+            ExportList(list, "导出全部");
         }
 
         void OnExportBatch(object s, EventArgs e)
         {
-            var list = exclChina ? xList.Where(n => !IsChineseNumber(n)).ToList() : xList;
-            int skipped = xList.Count - list.Count;
+            var list = xList.Where(n => !IsChineseNumber(n)).ToList();
             if (list.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
             var dlg = new FolderBrowserDialog { Description = "选择导出目录" };
             if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
@@ -940,15 +931,12 @@ namespace NumMagic
             }
             outPath = dlg.SelectedPath;
             IniWrite("OutPath", outPath);
-            string msg = string.Format("分批导出完成: {0:n0} 条, {1} 个文件", list.Count, batch - 1);
-            if (exclChina && skipped > 0) msg += string.Format("\n已排除中国 {0:n0} 条", skipped);
-            MessageBox.Show(msg, "完成");
+            MessageBox.Show(string.Format("分批导出完成: {0:n0} 条, {1} 个文件", list.Count, batch - 1), "完成");
         }
 
         void OnExportRgn(object s, EventArgs e)
         {
-            var list = exclChina ? xList.Where(n => !IsChineseNumber(n)).ToList() : xList;
-            int skipped = xList.Count - list.Count;
+            var list = xList.Where(n => !IsChineseNumber(n)).ToList();
             if (list.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
             var dlg = new FolderBrowserDialog { Description = "选择按区域导出目录" };
             if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
@@ -958,7 +946,6 @@ namespace NumMagic
             foreach (string num in list)
             {
                 string region = GetRegion(num);
-                if (exclChina && region.StartsWith("中国")) continue;
                 if (!groups.ContainsKey(region)) groups[region] = new List<string>();
                 groups[region].Add(num);
             }
@@ -976,16 +963,13 @@ namespace NumMagic
             }
             outPath = dlg.SelectedPath;
             IniWrite("OutPath", outPath);
-            string msg = string.Format("按区域导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
-                sb.ToString(), total, groups.Count);
-            if (exclChina && skipped > 0) msg += string.Format("\n已排除中国 {0:n0} 条", skipped);
-            MessageBox.Show(msg, "完成");
+            MessageBox.Show(string.Format("按区域导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
+                sb.ToString(), total, groups.Count), "完成");
         }
 
         void OnExportOprt(object s, EventArgs e)
         {
-            var list = exclChina ? xList.Where(n => !IsChineseNumber(n)).ToList() : xList;
-            int skipped = xList.Count - list.Count;
+            var list = xList.Where(n => !IsChineseNumber(n)).ToList();
             if (list.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
             var dlg = new FolderBrowserDialog { Description = "选择按运营商导出目录" };
             if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
@@ -1031,10 +1015,8 @@ namespace NumMagic
             }
             outPath = dlg.SelectedPath;
             IniWrite("OutPath", outPath);
-            string msgOp = string.Format("按运营商导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
-                sb.ToString(), total, groups.Count);
-            if (exclChina && skipped > 0) msgOp += string.Format("\n已排除中国 {0:n0} 条", skipped);
-            MessageBox.Show(msgOp, "完成");
+            MessageBox.Show(string.Format("按运营商导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
+                sb.ToString(), total, groups.Count), "完成");
         }
 
         // ── 帮助 ──
