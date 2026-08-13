@@ -75,17 +75,6 @@ namespace NumMagic
             KeyPreview = true;
             KeyDown += OnKeyDown;
             FormClosing += OnFormClosing;
-            // 启动时自动加载上次保存的数据
-            string dataFile = Path.Combine(Application.StartupPath, "data.txt");
-            if (File.Exists(dataFile))
-            {
-                try
-                {
-                    sList.AddRange(File.ReadAllLines(dataFile, Encoding.UTF8));
-                    lInfo.Text = string.Format("已恢复 {0:n0} 条", sList.Count);
-                }
-                catch { }
-            }
             UpdateAllPanes();
         }
 
@@ -116,11 +105,11 @@ namespace NumMagic
             bIn = Btn("输入号段", bx, upBtnY, bw, bh2, OnInput);
             bImpFile = Btn("导入文件", bx + (bw + bg) * 1, upBtnY, bw, bh2, OnImportFile);
             bImpNum = Btn("导入号码", bx + (bw + bg) * 2, upBtnY, bw, bh2, OnImportNum);
-            bFilter = Btn("过滤", bx + (bw + bg) * 3, upBtnY, 56, bh2, OnFilter);
-            bSort = Btn("排序↑", bx + (bw + bg) * 3 + 60, upBtnY, 56, bh2, OnSortUp);
-            bClrRpt = Btn("去重", bx + (bw + bg) * 3 + 120, upBtnY, 56, bh2, (s, e) => { int old = sList.Count; sList = sList.Distinct().ToList(); UpdateAllPanes(); MessageBox.Show(string.Format("去重: {0} -> {1}, 移除 {2}", old, sList.Count, old - sList.Count), "完成"); });
-            bClrNnum = Btn("清除非号", bx + (bw + bg) * 3 + 180, upBtnY, 70, bh2, OnClrNoPhone);
-            bClear = Btn("清空", bx + (bw + bg) * 3 + 254, upBtnY, 56, bh2, (s, e) => { sList.Clear(); UpdateAllPanes(); });
+            bFilter = Btn("对比去重", bx + (bw + bg) * 3, upBtnY, 80, bh2, OnFilter);
+            bSort = Btn("排序↑", bx + (bw + bg) * 3 + 84, upBtnY, 56, bh2, OnSortUp);
+            bClrRpt = Btn("去重", bx + (bw + bg) * 3 + 144, upBtnY, 56, bh2, (s, e) => { int old = sList.Count; sList = sList.Distinct().ToList(); UpdateAllPanes(); MessageBox.Show(string.Format("去重: {0} -> {1}, 移除 {2}", old, sList.Count, old - sList.Count), "完成"); });
+            bClrNnum = Btn("清除非号", bx + (bw + bg) * 3 + 204, upBtnY, 70, bh2, OnClrNoPhone);
+            bClear = Btn("清空", bx + (bw + bg) * 3 + 278, upBtnY, 56, bh2, (s, e) => { sList.Clear(); UpdateAllPanes(); });
             Controls.AddRange(new Control[] { bIn, bImpFile, bImpNum, bFilter, bSort, bClrRpt, bClrNnum, bClear });
 
             // ==== 原始区 滚动窗格 ====
@@ -156,8 +145,8 @@ namespace NumMagic
             int mvMX = (W - (mvMW * 4 + mvMG * 3)) / 2;
             bO2T_All = Btn("▼ 全部移下", mvMX, mvY, mvMW, 26, (s, e) => { xList.AddRange(sList); sList.Clear(); UpdateAllPanes(); });
             bT2O_All = Btn("▲ 全部移上", mvMX, mvY + 28, mvMW, 26, (s, e) => { sList.AddRange(xList); xList.Clear(); UpdateAllPanes(); });
-            bO2T_Num = Btn("▼ 按值移下", mvMX + (mvMW + mvMG), mvY, mvMW, 26, (s, e) => MoveSelUp());
-            bT2O_Num = Btn("▲ 按值移上", mvMX + (mvMW + mvMG), mvY + 28, mvMW, 26, (s, e) => MoveSelDn());
+            bO2T_Num = Btn("▼ 按值移下", mvMX + (mvMW + mvMG), mvY, mvMW, 26, (s, e) => MoveByValue(true));
+            bT2O_Num = Btn("▲ 按值移上", mvMX + (mvMW + mvMG), mvY + 28, mvMW, 26, (s, e) => MoveByValue(false));
             bO2T_Feat = Btn("▼ 按特征移下", mvMX + (mvMW + mvMG) * 2, mvY, mvMW, 26, (s, e) => MoveByFeat(true));
             bT2O_Feat = Btn("▲ 按特征移上", mvMX + (mvMW + mvMG) * 2, mvY + 28, mvMW, 26, (s, e) => MoveByFeat(false));
             bO2T_Type = Btn("▼ 按类型移下", mvMX + (mvMW + mvMG) * 3, mvY, mvMW, 26, (s, e) => MoveByType(true));
@@ -201,9 +190,8 @@ namespace NumMagic
             int exw = 80, exh = 22, exg = 4;
             var bExpAll = Btn("导出全部", pad, botY, exw, exh, OnExportAll);
             var bExpBat = Btn("分批导出", pad + (exw + exg) * 1, botY, exw, exh, OnExportBatch);
-            var bExpRgn = Btn("按区域导出", pad + (exw + exg) * 2, botY, exw, exh, OnExportRgn);
-            var bExpOpr = Btn("按运营商导出", pad + (exw + exg) * 3, botY, 84, exh, OnExportOprt);
-            Controls.AddRange(new Control[] { bExpAll, bExpBat, bExpRgn, bExpOpr });
+            var bExpRng = Btn("按需导出", pad + (exw + exg) * 2, botY, exw, exh, OnExportRange);
+            Controls.AddRange(new Control[] { bExpAll, bExpBat, bExpRng });
 
             lShowMore = new Label { Left = pad + (exw + exg) * 4 + 20, Top = botY + 2, AutoSize = true, Font = new Font("微软雅黑", 9), ForeColor = Color.DarkGray };
             Controls.Add(lShowMore);
@@ -248,7 +236,7 @@ namespace NumMagic
                 else
                 {
                     lv.RetrieveVirtualItem += OnRetrieveDn;
-                    lv.DoubleClick += (s2, e2) => MoveSelDn();
+                    lv.DoubleClick += (s2, e2) => MoveSelUpReverse();
                 }
                 lv.MouseClick += OnPaneClick;
                 panes.Add(lv);
@@ -393,22 +381,9 @@ namespace NumMagic
             if (e.KeyCode == Keys.Delete) OnDelete(sender, e);
         }
 
-        // ── 关闭 ──
+        // ── 关闭（不保存，每次打开都是干净的）──
         void OnFormClosing(object sender, FormClosingEventArgs e)
         {
-            // 自动保存数据 (启动时恢复)
-            string dataFile = Path.Combine(Application.StartupPath, "data.txt");
-            int total = sList.Count + xList.Count;
-            if (total > 0)
-            {
-                try
-                {
-                    var all = new List<string>(sList);
-                    all.AddRange(xList);
-                    File.WriteAllLines(dataFile, all.Distinct(), Encoding.UTF8);
-                }
-                catch { }
-            }
         }
 
         // ── 号码清洗 (手写循环, 比 Regex 快 ~20x) ──
@@ -429,6 +404,24 @@ namespace NumMagic
         {
             for (int i = 0; i < s.Length; i++) if (s[i] < '0' || s[i] > '9') return false;
             return true;
+        }
+
+        // 匹配基准：统一到「规范国际格式」再做比对（以国际为主）
+        // 一个号码在国际文件里多种写法都为同一号：
+        //   +8613812345678 / 008613812345678 / 8613812345678 / 裸 13812345678
+        //   统统归一成 8613812345678。
+        // 非中国国际号同理：+65912345678 / 0065912345678 归一成 65912345678。
+        static string Norm(string x)
+        {
+            if (string.IsNullOrEmpty(x)) return x;
+            string s = x;
+            // 去除国际拨号前缀写法差异：+ / 00
+            if (s.StartsWith("+")) s = s.Substring(1);
+            else if (s.StartsWith("00")) s = s.Substring(2);
+            // 国内裸 11 位手机号 → 补国际码 86
+            if (s.Length == 11 && s[0] == '1' && s[1] >= '3' && s[1] <= '9')
+                s = "86" + s;
+            return s;   // 其余（国际号/已带码）原样返回
         }
 
         // ── 插入前缀 ──
@@ -528,38 +521,60 @@ namespace NumMagic
             ImportText(text);
         }
 
-        // ── 导入：文件 ──
+        // ── 导入：文件 (支持单个或多个文件一起导入, 合并进原始区) ──
         void OnImportFile(object sender, EventArgs e)
         {
-            var dlg = new OpenFileDialog { Title = "选择号码文件", Filter = "文本文件|*.txt|CSV文件|*.csv|所有文件|*.*" };
+            var dlg = new OpenFileDialog
+            {
+                Title = "选择号码文件(可 Ctrl 多选/批量拖选)",
+                Filter = "文本文件|*.txt|CSV文件|*.csv|所有文件|*.*",
+                Multiselect = true
+            };
             if (dlg.ShowDialog() != DialogResult.OK) return;
 
             Enabled = false;
-            var fi = new FileInfo(dlg.FileName);
-            int estLines = (int)Math.Min(fi.Length / 15, int.MaxValue);
-            if (estLines > 200000000) { MessageBox.Show("文件过大 (>2亿行), 建议分批导入", "警告"); Enabled = true; return; }
-            var newList = new List<string>(Math.Max(estLines, 10000));
-            int skipped = 0;
+            int totalAdded = 0;
+            int totalSkipped = 0;
             try
             {
-                using (var sr = new StreamReader(dlg.FileName, Encoding.UTF8))
+                int fileIdx = 0;
+                foreach (string fname in dlg.FileNames)
                 {
-                    string line;
-                    while ((line = sr.ReadLine()) != null)
-                    {
-                        var num = Clean(line);
-                        if (num.Length > 0)
-                        {
-                            if (IsAllDigits(num)) newList.Add(num); else skipped++;
-                        }
-                        if ((newList.Count + skipped) % 50000 == 0) ShowProgress(string.Format("已读 {0:n0} 行...", newList.Count + skipped), 0);
-                    }
+                    fileIdx++;
+                    int added = ImportFileSingle(fname, dlg.FileNames.Length, fileIdx, ref totalSkipped);
+                    totalAdded += added;
                 }
+                if (sList.Count > 0) lInfo.Text = string.Format("原始区: {0:n0} 条", sList.Count);
             }
-            catch
+            finally
             {
-                newList.Clear(); skipped = 0;
-                using (var sr = new StreamReader(dlg.FileName, Encoding.GetEncoding("GBK")))
+                HideProgress();
+                Enabled = true;
+                UpdateAllPanes();
+            }
+            string skipMsg = totalSkipped > 0 ? string.Format(", 跳过 {0:n0} 非数字行", totalSkipped) : "";
+            MessageBox.Show(string.Format("导入完成: {0} 个文件, 新增 {1:n0} 条{2}",
+                dlg.FileNames.Length, totalAdded, skipMsg), "完成");
+        }
+
+        // 读取单个号码文件 (UTF-8 失败自动回退 GBK), 返回新增条数
+        int ImportFileSingle(string fname, int totalFiles, int fileIdx, ref int skipped)
+        {
+            var fi = new FileInfo(fname);
+            int estLines = (int)Math.Min(fi.Length / 15, int.MaxValue);
+            if (estLines > 200000000)
+            {
+                MessageBox.Show(string.Format("文件过大 (>2亿行), 已跳过: {0}", Path.GetFileName(fname)), "警告");
+                return 0;
+            }
+            var newList = new List<string>(Math.Max(estLines, 10000));
+            int localSkip = 0;
+            string pfx = totalFiles > 1 ? string.Format("({0}/{1}) {2}", fileIdx, totalFiles, Path.GetFileName(fname)) : Path.GetFileName(fname);
+            ShowProgress(string.Format("读取 {0}...", pfx), 0);
+            bool ok = false;
+            try
+            {
+                using (var sr = new StreamReader(fname, Encoding.UTF8))
                 {
                     string line;
                     while ((line = sr.ReadLine()) != null)
@@ -567,19 +582,35 @@ namespace NumMagic
                         var num = Clean(line);
                         if (num.Length > 0)
                         {
-                            if (IsAllDigits(num)) newList.Add(num); else skipped++;
+                            if (IsAllDigits(num)) newList.Add(num); else localSkip++;
                         }
-                        if ((newList.Count + skipped) % 50000 == 0) ShowProgress(string.Format("已读 {0:n0} 行...", newList.Count + skipped), 0);
+                        if ((newList.Count + localSkip) % 50000 == 0)
+                            ShowProgress(string.Format("已读 {0} {1:n0} 行...", pfx, newList.Count + localSkip), 0);
+                    }
+                }
+                ok = true;
+            }
+            catch { }
+            if (!ok)
+            {
+                newList.Clear(); localSkip = 0;
+                using (var sr = new StreamReader(fname, Encoding.GetEncoding("GBK")))
+                {
+                    string line;
+                    while ((line = sr.ReadLine()) != null)
+                    {
+                        var num = Clean(line);
+                        if (num.Length > 0)
+                        {
+                            if (IsAllDigits(num)) newList.Add(num); else localSkip++;
+                        }
+                        if ((newList.Count + localSkip) % 50000 == 0)
+                            ShowProgress(string.Format("已读 {0} {1:n0} 行...", pfx, newList.Count + localSkip), 0);
                     }
                 }
             }
-            sList.AddRange(newList.Distinct());
-            if (sList.Count > 0) { lInfo.Text = string.Format("原始区: {0:n0} 条", sList.Count); }
-            HideProgress();
-            Enabled = true;
-            UpdateAllPanes();
-            string skipMsg = skipped > 0 ? string.Format(", 跳过 {0:n0} 非数字行", skipped) : "";
-            MessageBox.Show(string.Format("导入完成: {0:n0} 条{1}", newList.Distinct().Count(), skipMsg), "完成");
+            skipped += localSkip;
+            return AppendUnique(sList, newList.Distinct());
         }
 
         void ImportText(string text)
@@ -592,11 +623,11 @@ namespace NumMagic
                 var num = Clean(line);
                 if (num.Length > 0) newList.Add(num);
             }
-            sList.AddRange(newList);
+            int added = AppendUnique(sList, newList);
             HideProgress();
             Enabled = true;
             UpdateAllPanes();
-            MessageBox.Show(string.Format("导入完成: {0:n0} 条", newList.Count), "完成");
+            MessageBox.Show(string.Format("导入完成: 新增 {0:n0} 条", added), "完成");
         }
 
         // ── 导入：号段 ──
@@ -637,6 +668,7 @@ namespace NumMagic
                 Enabled = false;
                 var newList = new List<string>();
                 long total = (end - start + 1) * heads.Count;
+                if (total > 200000000L) { MessageBox.Show(string.Format("生成数量过多 ({0:n0} 条, 超过 2 亿), 请缩小区间或减少前缀。", total), "警告"); Enabled = true; return; }
                 long count = 0;
                 foreach (string h in heads)
                 {
@@ -648,11 +680,11 @@ namespace NumMagic
                             ShowProgress(string.Format("生成 {0:n0}/{1:n0}", count, total), (int)(count * 100 / total));
                     }
                 }
-                sList.AddRange(newList);
+                int added = AppendUnique(sList, newList);
                 HideProgress();
                 Enabled = true;
                 UpdateAllPanes();
-                MessageBox.Show(string.Format("生成完成: {0:n0} 条", newList.Count), "完成");
+                MessageBox.Show(string.Format("生成完成: 新增 {0:n0} 条", added), "完成");
                 f.Close();
             };
             f.Controls.Add(bOk);
@@ -662,15 +694,24 @@ namespace NumMagic
             f.ShowDialog();
         }
 
-        // ── 过滤 ──
+        // ── 对比去重 (分批+进度，一亿行不卡UI) ──
+        // 语义: 读取"对比上传文件"的号码, 与"原始区"对比;
+        //       对比文件中命中原始区(原始区已有=重复) → 过滤移除;
+        //       对比文件中原始区没有的号码 → 保留进入目标区。
+        // 方向: 对比文件 − 原始区 (保留对比文件里原始区没有的)
         void OnFilter(object sender, EventArgs e)
         {
-            var dlg = new OpenFileDialog { Title = "选择过滤文件", Filter = "文本文件|*.txt|所有文件|*.*" };
+            var dlg = new OpenFileDialog { Title = "选择对比去重文件", Filter = "文本文件|*.txt|所有文件|*.*" };
             if (dlg.ShowDialog() != DialogResult.OK) return;
 
+            // 原始区号码 → 参照集(黑名单): 对比文件里出现这些 = 重复, 要过滤
+            var refSet = new HashSet<string>(sList);
             Enabled = false;
-            ShowProgress("加载过滤文件...", 0);
-            var filterSet = new HashSet<string>();
+            ShowProgress("对比去重中...", 0);
+
+            var keep = new List<string>();
+            int dupCount = 0;
+            int total = 0;
             try
             {
                 using (var sr = new StreamReader(dlg.FileName, Encoding.UTF8))
@@ -679,7 +720,14 @@ namespace NumMagic
                     while ((line = sr.ReadLine()) != null)
                     {
                         var num = Clean(line);
-                        if (num.Length > 0) filterSet.Add(num);
+                        // 只收纯数字行 (与导入原始区间规则), 字母/备注行过滤掉
+                        if (num.Length > 0 && IsAllDigits(num))
+                        {
+                            total++;
+                            if (refSet.Contains(num)) dupCount++;   // 原始区已有 → 重复, 过滤
+                            else keep.Add(num);                      // 原始区没有 → 进目标区
+                        }
+                        if (total % 200000 == 0) { ShowProgress(string.Format("对比去重中 ({0:n0} 行)...", total), 0); }
                     }
                 }
             }
@@ -691,20 +739,23 @@ namespace NumMagic
                     while ((line = sr.ReadLine()) != null)
                     {
                         var num = Clean(line);
-                        if (num.Length > 0) filterSet.Add(num);
+                        if (num.Length > 0 && IsAllDigits(num))
+                        {
+                            total++;
+                            if (refSet.Contains(num)) dupCount++;
+                            else keep.Add(num);
+                        }
+                        if (total % 200000 == 0) { ShowProgress(string.Format("对比去重中 ({0:n0} 行)...", total), 0); }
                     }
                 }
             }
-            ShowProgress("过滤中...", 0);
-            int total = sList.Count, removed = 0;
-            for (int i = sList.Count - 1; i >= 0; i--)
-            {
-                if (filterSet.Contains(sList[i])) { sList.RemoveAt(i); removed++; }
-            }
+            xList = keep;            // 目标区 = 对比文件中原始区没有的号码
+            sList.Clear();           // 原始区清空（参照完毕）
             HideProgress();
             Enabled = true;
             UpdateAllPanes();
-            MessageBox.Show(string.Format("过滤完成: 上传 {0:n0} 条过滤词, 共扫描 {1:n0} 条, 移除 {2:n0} 条", filterSet.Count, total, removed), "完成");
+            MessageBox.Show(string.Format("对比去重完成: 原始区 {0:n0} 条, 对比文件 {1:n0} 条, 命中(原始区已有)移除 {2:n0} 条, 保留进目标区 {3:n0} 条",
+                            refSet.Count, total, dupCount, keep.Count), "完成");
         }
 
         // ── 清除非手机号 ──
@@ -725,55 +776,163 @@ namespace NumMagic
         // ── 移动选中 ──
         void MoveSelUp()
         {
-            if (focusedPane == null || !focusedPane.Tag.ToString().StartsWith("UP")) return;
-            if (focusedPane.SelectedIndices.Count == 0) return;
-            int paneIdx = int.Parse(focusedPane.Tag.ToString().Split(':')[1]);
-            int baseOff = paneIdx * PER_PANE;
-            var idxs = focusedPane.SelectedIndices.Cast<int>().OrderByDescending(i => i).ToList();
-            foreach (int i in idxs)
+            foreach (var lv in upPanes)
             {
-                int gi = baseOff + i;
-                if (gi < sList.Count) { xList.Add(sList[gi]); sList.RemoveAt(gi); }
+                if (lv.SelectedIndices.Count == 0) continue;
+                int paneIdx = int.Parse(lv.Tag.ToString().Split(':')[1]);
+                int baseOff = paneIdx * PER_PANE;
+                var idxs = lv.SelectedIndices.Cast<int>().OrderByDescending(i => i).ToList();
+                foreach (int i in idxs)
+                {
+                    int gi = baseOff + i;
+                    if (gi < sList.Count) { xList.Add(sList[gi]); sList.RemoveAt(gi); }
+                }
+                UpdateAllPanes();
+                return;
             }
-            UpdateAllPanes();
         }
-        void MoveSelDn()
+        void MoveSelUpReverse()
         {
-            if (focusedPane == null || !focusedPane.Tag.ToString().StartsWith("DN")) return;
-            if (focusedPane.SelectedIndices.Count == 0) return;
-            int paneIdx = int.Parse(focusedPane.Tag.ToString().Split(':')[1]);
-            int baseOff = paneIdx * PER_PANE;
-            var idxs = focusedPane.SelectedIndices.Cast<int>().OrderByDescending(i => i).ToList();
-            foreach (int i in idxs)
+            foreach (var lv in dnPanes)
             {
-                int gi = baseOff + i;
-                if (gi < xList.Count) { sList.Add(xList[gi]); xList.RemoveAt(gi); }
+                if (lv.SelectedIndices.Count == 0) continue;
+                int paneIdx = int.Parse(lv.Tag.ToString().Split(':')[1]);
+                int baseOff = paneIdx * PER_PANE;
+                var idxs = lv.SelectedIndices.Cast<int>().OrderByDescending(i => i).ToList();
+                foreach (int i in idxs)
+                {
+                    int gi = baseOff + i;
+                    if (gi < xList.Count) { sList.Add(xList[gi]); xList.RemoveAt(gi); }
+                }
+                UpdateAllPanes();
+                return;
             }
-            UpdateAllPanes();
         }
 
-        // ── 按特征/类型移动 (简化, 实际按选中) ──
-        // 按特征移动 (数字长度: >=13长号码/11手机/<=10短号)
+        // ── 按值移动 (弹窗输入号码/前缀/子串) ──
+        void MoveByValue(bool down)
+        {
+            var src = down ? sList : xList;
+            var dst = down ? xList : sList;
+            if (src.Count == 0) { MessageBox.Show((down ? "原始区" : "目标区") + "为空", "提示"); return; }
+            var f = new Form { Text = (down ? "▼ 按值移下" : "▲ 按值移上"), Size = new Size(420, 175), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+            f.Controls.Add(new Label { Text = "填入要移动的号码 / 前缀 / 任意子串 (支持多行):", Left = 12, Top = 12, AutoSize = true });
+            var tb = new TextBox { Left = 12, Top = 34, Width = 380, Height = 55, Multiline = true, ScrollBars = ScrollBars.Vertical };
+            f.Controls.Add(tb);
+            f.Controls.Add(new Label { Text = "匹配方式: 任意包含(子串)。含 '86' 前缀的也以子串匹配。", Left = 12, Top = 96, AutoSize = true, ForeColor = Color.Gray, Font = new Font("微软雅黑", 8) });
+            var bOk = new Button { Text = "移动", Left = 300, Top = 118, Width = 80 };
+            bOk.Click += (s2, e2) =>
+            {
+                string input = tb.Text.Trim();
+                if (string.IsNullOrEmpty(input)) { f.Close(); return; }
+                var keys = input.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var keyList = new HashSet<string>();
+                foreach (var k in keys) { var kk = Clean(k); if (kk.Length > 0) keyList.Add(kk); }
+                if (keyList.Count == 0) { f.Close(); return; }
+                List<string> toMove, toKeep;
+                SplitList(src, n => { foreach (var k in keyList) if (n.Contains(k)) return true; return false; }, out toMove, out toKeep);
+                dst.AddRange(toMove);
+                if (down) sList = toKeep; else xList = toKeep;
+                UpdateAllPanes();
+                MessageBox.Show(string.Format("按值移动完成: 移动 {0:n0} 条", toMove.Count), "完成");
+                f.Close();
+            };
+            f.Controls.Add(bOk);
+            var bCancel = new Button { Text = "取消", Left = 216, Top = 118, Width = 70 };
+            bCancel.Click += (cS, cE) => f.Close();
+            f.Controls.Add(bCancel);
+            f.ShowDialog();
+        }
+        // 按特征移动 (数字长度档位选择弹窗)
         void MoveByFeat(bool down)
         {
-            var src = focusedPane == null || !focusedPane.Tag.ToString().StartsWith(down ? "UP" : "DN") ? null : (down ? sList : xList);
+            var src = down ? sList : xList;
             var dst = down ? xList : sList;
-            if (src == null) return;
-            var toMove = src.Where(n => n.Length >= 13).ToList();
-            dst.AddRange(toMove);
-            foreach (var n in toMove) src.Remove(n);
-            UpdateAllPanes();
+            if (src.Count == 0) { MessageBox.Show((down ? "原始区" : "目标区") + "为空", "提示"); return; }
+            var f = new Form { Text = (down ? "▼ 按特征移下" : "▲ 按特征移上"), Size = new Size(360, 230), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+            f.Controls.Add(new Label { Text = "选择要移动的数字长度特征:", Left = 16, Top = 14, AutoSize = true });
+            var rbA = new RadioButton { Text = "长号码(≥13位, 常含国家码)", Left = 24, Top = 44, AutoSize = true, Checked = true };
+            var rbB = new RadioButton { Text = "中国手机(11位 1[3-9]开头)", Left = 24, Top = 72, AutoSize = true };
+            var rbC = new RadioButton { Text = "短号(≤10位)", Left = 24, Top = 100, AutoSize = true };
+            f.Controls.AddRange(new Control[] { rbA, rbB, rbC });
+            var bOk = new Button { Text = "移动", Left = 250, Top = 150, Width = 80 };
+            bOk.Click += (s2, e2) =>
+            {
+                Predicate<string> pred;
+                if (rbA.Checked) pred = n => n.Length >= 13;
+                else if (rbB.Checked) pred = n => n.Length == 11 && n[0] == '1' && n[1] >= '3' && n[1] <= '9';
+                else pred = n => n.Length <= 10;
+                List<string> toMove, toKeep;
+                SplitList(src, pred, out toMove, out toKeep);
+                dst.AddRange(toMove);
+                if (down) sList = toKeep; else xList = toKeep;
+                UpdateAllPanes();
+                MessageBox.Show(string.Format("按特征移动完成: 移动 {0:n0} 条", toMove.Count), "完成");
+                f.Close();
+            };
+            f.Controls.Add(bOk);
+            var bCancel = new Button { Text = "取消", Left = 166, Top = 150, Width = 70 };
+            bCancel.Click += (cS, cE) => f.Close();
+            f.Controls.Add(bCancel);
+            f.ShowDialog();
         }
-        // 按类型移动 (国际号/中国手机/固话)
+        // 按类型移动 (号码类型选择弹窗)
         void MoveByType(bool down)
         {
-            var src = focusedPane == null || !focusedPane.Tag.ToString().StartsWith(down ? "UP" : "DN") ? null : (down ? sList : xList);
+            var src = down ? sList : xList;
             var dst = down ? xList : sList;
-            if (src == null) return;
-            var toMove = src.Where(n => !string.IsNullOrEmpty(n) && (n.StartsWith("+") || n.StartsWith("00")) && !n.StartsWith("+86")).ToList();
-            dst.AddRange(toMove);
-            foreach (var n in toMove) src.Remove(n);
-            UpdateAllPanes();
+            if (src.Count == 0) { MessageBox.Show((down ? "原始区" : "目标区") + "为空", "提示"); return; }
+            var f = new Form { Text = (down ? "▼ 按类型移下" : "▲ 按类型移上"), Size = new Size(400, 240), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+            f.Controls.Add(new Label { Text = "选择要移动的号码类型:", Left = 16, Top = 14, AutoSize = true });
+            var rbA = new RadioButton { Text = "国际号(含国家码, 非86前缀)", Left = 24, Top = 44, AutoSize = true, Checked = true };
+            var rbB = new RadioButton { Text = "中国大陆(86/11位国内号)", Left = 24, Top = 72, AutoSize = true };
+            var rbC = new RadioButton { Text = "全部(区分国内/国际都移)", Left = 24, Top = 100, AutoSize = true };
+            f.Controls.AddRange(new Control[] { rbA, rbB, rbC });
+            f.Controls.Add(new Label { Text = "注: 本按钮把选中的类型从源区移到目标区。", Left = 16, Top = 128, AutoSize = true, ForeColor = Color.Gray, Font = new Font("微软雅黑", 8) });
+            var bOk = new Button { Text = "移动", Left = 290, Top = 158, Width = 80 };
+            bOk.Click += (s2, e2) =>
+            {
+                Predicate<string> pred;
+                if (rbA.Checked)
+                    pred = n => !string.IsNullOrEmpty(n) && ((n.StartsWith("+") && !n.StartsWith("+86")) || n.StartsWith("00"));
+                else if (rbB.Checked)
+                    pred = n => !string.IsNullOrEmpty(n) && IsChineseNumber(n);
+                else
+                    pred = n => true;
+                List<string> toMove, toKeep;
+                SplitList(src, pred, out toMove, out toKeep);
+                dst.AddRange(toMove);
+                if (down) sList = toKeep; else xList = toKeep;
+                UpdateAllPanes();
+                MessageBox.Show(string.Format("按类型移动完成: 移动 {0:n0} 条", toMove.Count), "完成");
+                f.Close();
+            };
+            f.Controls.Add(bOk);
+            var bCancel = new Button { Text = "取消", Left = 206, Top = 158, Width = 70 };
+            bCancel.Click += (cS, cE) => f.Close();
+            f.Controls.Add(bCancel);
+            f.ShowDialog();
+        }
+
+        // 工具: 一次扫描拆分为两表，避免 O(n²) Remove
+        static void SplitList(List<string> src, Predicate<string> pred, out List<string> matched, out List<string> kept)
+        {
+            matched = new List<string>();
+            kept = new List<string>();
+            foreach (var n in src) { if (pred(n)) matched.Add(n); else kept.Add(n); }
+        }
+
+        // 保序合并去重: 把 newItems 追加到 list, 去掉与 list 已有重复的项(保持原始顺序)
+        // 返回实际新增数量。避免多次导入混入重复。
+        static int AppendUnique(List<string> list, IEnumerable<string> newItems)
+        {
+            var seen = new HashSet<string>(list);
+            int added = 0;
+            foreach (var n in newItems)
+            {
+                if (n.Length > 0 && seen.Add(n)) { list.Add(n); added++; }
+            }
+            return added;
         }
 
         // ── 文件对比 ──
@@ -850,118 +1009,6 @@ namespace NumMagic
             MessageBox.Show(result, "报告");
         }
 
-        // ── 区域/国家检测 ──
-        static Dictionary<string, string> _countryMap;
-        static Dictionary<string, string> CountryMap()
-        {
-            if (_countryMap != null) return _countryMap;
-            var m = new Dictionary<string, string>();
-            // 亚洲
-            m["86"]="中国";m["852"]="香港";m["853"]="澳门";m["886"]="台湾";
-            m["81"]="日本";m["82"]="韩国";m["84"]="越南";m["66"]="泰国";
-            m["62"]="印尼";m["60"]="马来西亚";m["63"]="菲律宾";m["65"]="新加坡";
-            m["91"]="印度";m["92"]="巴基斯坦";m["95"]="缅甸";m["855"]="柬埔寨";
-            m["856"]="老挝";m["880"]="孟加拉";m["94"]="斯里兰卡";m["977"]="尼泊尔";
-            m["976"]="蒙古";m["850"]="朝鲜";m["98"]="伊朗";m["90"]="土耳其";
-            m["966"]="沙特";m["971"]="阿联酋";m["972"]="以色列";m["961"]="黎巴嫩";
-            // 欧洲
-            m["7"]="俄罗斯/哈萨克斯坦";m["44"]="英国";m["49"]="德国";m["33"]="法国";
-            m["39"]="意大利";m["34"]="西班牙";m["31"]="荷兰";m["32"]="比利时";
-            m["41"]="瑞士";m["43"]="奥地利";m["46"]="瑞典";m["47"]="挪威";
-            m["45"]="丹麦";m["358"]="芬兰";m["48"]="波兰";m["380"]="乌克兰";
-            m["375"]="白俄罗斯";m["40"]="罗马尼亚";m["36"]="匈牙利";m["420"]="捷克";
-            m["421"]="斯洛伐克";m["30"]="希腊";m["351"]="葡萄牙";m["353"]="爱尔兰";
-            // 非洲
-            m["20"]="埃及";m["234"]="尼日利亚";m["254"]="肯尼亚";m["27"]="南非";
-            m["233"]="加纳";m["256"]="乌干达";m["255"]="坦桑尼亚";m["251"]="埃塞俄比亚";
-            // 美洲
-            m["1"]="美国/加拿大";m["52"]="墨西哥";m["55"]="巴西";m["54"]="阿根廷";
-            m["57"]="哥伦比亚";m["51"]="秘鲁";m["56"]="智利";m["58"]="委内瑞拉";
-            // 大洋洲
-            m["61"]="澳大利亚";m["64"]="新西兰";
-            _countryMap = m;
-            return m;
-        }
-
-        // 中国手机运营商检测 (前3位)
-        static string GetCarrier(string num)
-        {
-            if (num.Length < 3) return "未知";
-            string p3 = num.Substring(0, 3);
-            // 移动
-            if (p3 == "134" || (string.Compare(p3, "135") >= 0 && string.Compare(p3, "139") <= 0) ||
-                p3 == "147" || p3 == "148" || p3 == "150" || p3 == "151" || p3 == "152" ||
-                p3 == "157" || p3 == "158" || p3 == "159" || p3 == "165" || p3 == "172" ||
-                p3 == "178" || p3 == "182" || p3 == "183" || p3 == "184" || p3 == "187" ||
-                p3 == "188" || p3 == "195" || p3 == "197" || p3 == "198")
-                return "中国移动";
-            // 联通
-            if (p3 == "130" || p3 == "131" || p3 == "132" || p3 == "145" || p3 == "146" ||
-                p3 == "155" || p3 == "156" || p3 == "166" || p3 == "167" || p3 == "171" ||
-                p3 == "175" || p3 == "176" || p3 == "185" || p3 == "186" || p3 == "196")
-                return "中国联通";
-            // 电信
-            if (p3 == "133" || p3 == "141" || p3 == "149" || p3 == "153" || p3 == "162" ||
-                p3 == "170" || p3 == "173" || p3 == "174" || p3 == "177" || p3 == "180" ||
-                p3 == "181" || p3 == "189" || p3 == "190" || p3 == "191" || p3 == "193" || p3 == "199")
-                return "中国电信";
-            // 广电
-            if (p3 == "192") return "中国广电";
-            return "未知";
-        }
-
-        // 中国手机号省份/区域 (按前3位号段)
-        static string GetProvince(string num)
-        {
-            if (num.Length < 3) return "中国";
-            string p3 = num.Substring(0, 3);
-            // 注意: 同一前缀可能分配给多个省份(号段重分配), 仅作为近似参考
-            var prov = new Dictionary<string, string> {
-                {"134","北京/广东/上海"},{"135","北京"},{"136","北京/广东"},{"137","北京"},{"138","北京/上海/广东/江苏"},{"139","北京/上海"},
-                {"150","上海"},{"151","上海"},{"152","上海"},
-                {"153","福建"},{"155","广东"},{"156","广东"},{"157","北京/广东"},{"158","广东"},{"159","广东/浙江"},
-                {"178","浙江"},{"180","江苏"},{"181","江苏"},{"182","江苏"},{"183","广东"},{"184","广东"},
-            };
-            if (prov.ContainsKey(p3)) return prov[p3];
-            return "中国(" + p3 + ")";
-        }
-
-        // 去前缀 提取纯净号码 + 区域标签
-        string GetRegion(string num)
-        {
-            string raw = num.Replace(" ", "").Replace("-", "");
-            string clean = raw.Replace("+", "");
-            bool hasIntlPrefix = raw.StartsWith("+") || raw.StartsWith("00");
-            if (clean.StartsWith("00")) clean = clean.Substring(2);
-
-            // 86前缀: +86138... 或 0086138...
-            if (clean.StartsWith("86") && clean.Length >= 13)
-            {
-                string cn = clean.Substring(2);
-                if (cn.Length == 11 && cn.StartsWith("1"))
-                    return GetProvince(cn);
-                if (cn.StartsWith("0"))
-                    return "中国(固话)";
-                return "中国";
-            }
-            // 无前缀中国手机号: 1[3-9]xxxxxxxx (仅在没有+前缀时生效)
-            if (!hasIntlPrefix && clean.Length == 11 && clean[0] == '1' && clean[1] >= '3' && clean[1] <= '9')
-                return "中国(手机)";
-            // 中国固话
-            if (!hasIntlPrefix && clean.StartsWith("0") && clean.Length >= 10)
-                return "中国(固话)";
-
-            var cmap = CountryMap();
-            var keys = new List<string>(cmap.Keys);
-            keys.Sort((a, b) => b.Length.CompareTo(a.Length));
-            foreach (string code in keys)
-            {
-                if (clean.StartsWith(code) && clean.Length >= code.Length + 4)
-                    return cmap[code];
-            }
-            return "未知区域";
-        }
-
         // 判断是否中国号码
         bool IsChineseNumber(string num)
         {
@@ -981,10 +1028,10 @@ namespace NumMagic
             return false;
         }
 
-        void ExportList(List<string> list, string desc)
+        void ExportList(List<string> list, string desc, string timestamp)
         {
             var dlg = new SaveFileDialog { Title = desc, Filter = "文本文件|*.txt",
-                FileName = desc.Replace(" ", "_") + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") };
+                FileName = desc.Replace(" ", "_") + "_" + list.Count.ToString() + "个_" + timestamp };
             if (!string.IsNullOrEmpty(outPath)) dlg.InitialDirectory = outPath;
             if (dlg.ShowDialog() != DialogResult.OK) return;
             try
@@ -998,121 +1045,104 @@ namespace NumMagic
         }
 
         void OnExportAll(object s, EventArgs e) {
-            var list = xList.Where(n => !IsChineseNumber(n)).ToList();
-            ExportList(list, "导出全部");
+            var list = xList.ToList();
+            if (list.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
+            ExportList(list, "导出全部", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
         }
 
+        // 分批导出: 每批数量可自定义(默认10万, 可输入任意正整数)
         void OnExportBatch(object s, EventArgs e)
         {
-            var list = xList.Where(n => !IsChineseNumber(n)).ToList();
+            var list = xList.ToList();
             if (list.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
+            var p = new Form { Text = "分批导出 - 每批数量", Size = new Size(330, 175), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+            p.Controls.Add(new Label { Text = "输入每批要导出的数量(正整数):", Left = 16, Top = 18, AutoSize = true });
+            var tb = new TextBox { Left = 16, Top = 44, Width = 280, Text = "100000" };
+            p.Controls.Add(tb);
+            var tip = new Label { Text = "如总数 50 万、每批 5 万 → 得到 10 个文件", Left = 16, Top = 76, AutoSize = true, ForeColor = Color.Gray, Font = new Font("微软雅黑", 8) };
+            p.Controls.Add(tip);
+            var bOk = new Button { Text = "确定", Left = 220, Top = 110, Width = 76 };
+            int per = 100000;
+            bOk.Click += (s2, e2) =>
+            {
+                if (!int.TryParse(tb.Text.Trim(), out per) || per <= 0) { MessageBox.Show("请输入正整数", "提示"); return; }
+                p.DialogResult = DialogResult.OK;
+                p.Close();
+            };
+            p.Controls.Add(bOk);
+            p.Controls.Add(new Button { Text = "取消", Left = 140, Top = 110, Width = 70, DialogResult = DialogResult.Cancel });
+            if (p.ShowDialog() != DialogResult.OK) return;
+
             var dlg = new FolderBrowserDialog { Description = "选择导出目录" };
             if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
             if (dlg.ShowDialog() != DialogResult.OK) return;
             try
             {
-                int batch = 1, per = 100000;
+                string ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                int batch = 1;
                 for (int i = 0; i < list.Count; i += per)
                 {
                     int cnt = Math.Min(per, list.Count - i);
                     string fn = Path.Combine(dlg.SelectedPath,
-                        string.Format("batch_{0}_{1}.txt", batch, DateTime.Now.ToString("yyyyMMddHHmmss")));
+                        string.Format("分批_{0}_第{1}批_{2}个_{3}.txt", DateTime.Now.ToString("yyyyMMddHHmmss"),
+                            batch, cnt, ts));
                     File.WriteAllLines(fn, list.GetRange(i, cnt), Encoding.UTF8);
                     batch++;
                 }
                 outPath = dlg.SelectedPath;
                 IniWrite("OutPath", outPath);
-                MessageBox.Show(string.Format("分批导出完成: {0:n0} 条, {1} 个文件", list.Count, batch - 1), "完成");
+                MessageBox.Show(string.Format("分批导出完成: 每批 {0:n0} 条, 共 {1:n0} 条, {2} 个文件",
+                    per, list.Count, batch - 1), "完成");
             }
             catch (Exception ex) { MessageBox.Show("导出失败: " + ex.Message, "错误"); }
         }
 
-        void OnExportRgn(object s, EventArgs e)
+        // 按需导出: 自定义 开始行..结束行 (行号从1开始)
+        void OnExportRange(object s, EventArgs e)
         {
-            var list = xList.Where(n => !IsChineseNumber(n)).ToList();
+            var list = xList.ToList();
             if (list.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
-            var dlg = new FolderBrowserDialog { Description = "选择按区域导出目录" };
-            if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
-            if (dlg.ShowDialog() != DialogResult.OK) return;
-
-            try
+            var p = new Form { Text = "按需导出 - 选择行区间", Size = new Size(340, 200), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+            p.Controls.Add(new Label { Text = string.Format("目标区共 {0:n0} 条(行号从 1 开始)", list.Count), Left = 16, Top = 16, AutoSize = true, Font = new Font("微软雅黑", 9) });
+            p.Controls.Add(new Label { Text = "开始行:", Left = 16, Top = 50, AutoSize = true });
+            var tStart = new TextBox { Text = "1", Left = 90, Top = 48, Width = 220 };
+            p.Controls.Add(tStart);
+            p.Controls.Add(new Label { Text = "结束行:", Left = 16, Top = 80, AutoSize = true });
+            var tEnd = new TextBox { Text = list.Count.ToString(), Left = 90, Top = 78, Width = 220 };
+            p.Controls.Add(tEnd);
+            var bOk = new Button { Text = "导出", Left = 232, Top = 130, Width = 80 };
+            bOk.Click += (s2, e2) =>
             {
-                var groups = new Dictionary<string, List<string>>();
-                foreach (string num in list)
+                int start, end;
+                if (!int.TryParse(tStart.Text.Trim(), out start) || !int.TryParse(tEnd.Text.Trim(), out end)
+                    || start < 1 || end < start || end > list.Count)
                 {
-                    string region = GetRegion(num);
-                    if (!groups.ContainsKey(region)) groups[region] = new List<string>();
-                    groups[region].Add(num);
+                    MessageBox.Show(string.Format("区间无效: 需 1 <= 开始行 <= 结束行 <= {0}", list.Count), "提示");
+                    return;
                 }
-
-                var sb = new StringBuilder();
-                int total = 0;
-                foreach (var kv in groups)
-                {
-                    string fname = kv.Key.Replace("/", "_").Replace("(", "").Replace(")", "");
-                    string fn = Path.Combine(dlg.SelectedPath,
-                        string.Format("区域_{0}_{1}.txt", fname, DateTime.Now.ToString("yyyyMMddHHmmss")));
-                    File.WriteAllLines(fn, kv.Value, Encoding.UTF8);
-                    sb.AppendLine(string.Format("  {0}: {1:n0} 条", kv.Key, kv.Value.Count));
-                    total += kv.Value.Count;
-                }
-                outPath = dlg.SelectedPath;
-                IniWrite("OutPath", outPath);
-                MessageBox.Show(string.Format("按区域导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
-                    sb.ToString(), total, groups.Count), "完成");
-            }
-            catch (Exception ex) { MessageBox.Show("导出失败: " + ex.Message, "错误"); }
-        }
-
-        void OnExportOprt(object s, EventArgs e)
-        {
-            var list = xList.Where(n => !IsChineseNumber(n)).ToList();
-            if (list.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
-            var dlg = new FolderBrowserDialog { Description = "选择按运营商导出目录" };
-            if (!string.IsNullOrEmpty(outPath)) dlg.SelectedPath = outPath;
-            if (dlg.ShowDialog() != DialogResult.OK) return;
-
-            try
-            {
-                var groups = new Dictionary<string, List<string>>();
-                foreach (string num in list)
-                {
-                    string label = GetRegion(num);
-                    if (!groups.ContainsKey(label)) groups[label] = new List<string>();
-                    groups[label].Add(num);
-                }
-
-                var sb = new StringBuilder();
-                int total = 0;
-                foreach (var kv in groups)
-                {
-                    string fname = kv.Key.Replace("/", "_");
-                    string fn = Path.Combine(dlg.SelectedPath,
-                        string.Format("运营商_{0}_{1}.txt", fname, DateTime.Now.ToString("yyyyMMddHHmmss")));
-                    File.WriteAllLines(fn, kv.Value, Encoding.UTF8);
-                    sb.AppendLine(string.Format("  {0}: {1:n0} 条", kv.Key, kv.Value.Count));
-                    total += kv.Value.Count;
-                }
-                outPath = dlg.SelectedPath;
-                IniWrite("OutPath", outPath);
-                MessageBox.Show(string.Format("按运营商导出完成:\n{0}\n共 {1:n0} 条, {2} 个文件",
-                    sb.ToString(), total, groups.Count), "完成");
-            }
-            catch (Exception ex) { MessageBox.Show("导出失败: " + ex.Message, "错误"); }
+                var sub = new List<string>();
+                for (int i = start - 1; i < end && i < list.Count; i++) sub.Add(list[i]);
+                p.DialogResult = DialogResult.OK;
+                p.Close();
+                ExportList(sub, string.Format("按需导出_{0}至{1}行", start, end),
+                    DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+            };
+            p.Controls.Add(bOk);
+            p.Controls.Add(new Button { Text = "取消", Left = 148, Top = 130, Width = 70, DialogResult = DialogResult.Cancel });
+            p.ShowDialog();
         }
 
         // ── 帮助 ──
         void OnHelp(object sender, EventArgs e)
         {
-            string msg = @"龙哥数据_筛选 v4.0
-
+            string msg = @"龙哥数据_筛选 v4.2
 【基本操作】
 • 导入文件：支持 txt/csv (UTF-8/GBK)
 • 导入号码：从剪贴板粘贴
 • 输入号段：按前缀+区间批量生成
 
 【核心功能】
-• 过滤重复/合并重复：最核心功能
+• 对比去重：原始区(导入文件)的号码 与 对比去重文件 对比，命中(重复)过滤移除，未重复进目标区
 • 排序/乱序：按号码排序或随机打乱
 • 去重：删除重复号码
 • 清除非号：只保留纯数字>=7位
@@ -1125,12 +1155,14 @@ namespace NumMagic
 
 【移动操作】
 • 8 个方向按钮：全部/按值/按特征/按类型 上下移动
+• 按值/按特征/按类型 都会弹出选择窗口再移动
 
 【导出】
-• 导出全部/分批/按区域/按运营商
+• 导出全部 / 分批导出(每批数量可自填) / 按需导出(选开始到结束行)
 • 报告：号段分布 TOP20 + 样本
 
-【快捷键】Delete 删除选中 | Ctrl+A 全选";
+【快捷键】Delete 删除选中
+";
             MessageBox.Show(msg, "帮助 - 龙哥数据_筛选");
         }
     }
