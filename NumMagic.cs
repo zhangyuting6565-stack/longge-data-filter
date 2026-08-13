@@ -42,7 +42,6 @@ namespace NumMagic
         bool showAll = false;
         Label lShowMore, lCnt1, lCnt2, lInfo, lTitle;
         ProgressBar progress;
-        BackgroundWorker worker;
 
         Button bExit, bHelp, bIn, bImpFile, bImpNum, bFilter, bSort, bClrRpt, bClrNnum, bClear;
         Button bSort2, bNsort, bClrRpt2, bClear2, bOutAll, bCompare, bInsert, bDelete;
@@ -107,7 +106,7 @@ namespace NumMagic
             bImpNum = Btn("导入号码", bx + (bw + bg) * 2, upBtnY, bw, bh2, OnImportNum);
             bFilter = Btn("对比去重", bx + (bw + bg) * 3, upBtnY, 80, bh2, OnFilter);
             bSort = Btn("排序↑", bx + (bw + bg) * 3 + 84, upBtnY, 56, bh2, OnSortUp);
-            bClrRpt = Btn("去重", bx + (bw + bg) * 3 + 144, upBtnY, 56, bh2, (s, e) => { int old = sList.Count; sList = sList.Distinct().ToList(); UpdateAllPanes(); MessageBox.Show(string.Format("去重: {0} -> {1}, 移除 {2}", old, sList.Count, old - sList.Count), "完成"); });
+            bClrRpt = Btn("去重", bx + (bw + bg) * 3 + 144, upBtnY, 56, bh2, (s, e) => { int old = sList.Count; sList = DedupNorm(sList); UpdateAllPanes(); MessageBox.Show(string.Format("去重: {0} -> {1}, 移除 {2}", old, sList.Count, old - sList.Count), "完成"); });
             bClrNnum = Btn("清除非号", bx + (bw + bg) * 3 + 204, upBtnY, 70, bh2, OnClrNoPhone);
             bClear = Btn("清空", bx + (bw + bg) * 3 + 278, upBtnY, 56, bh2, (s, e) => { sList.Clear(); UpdateAllPanes(); });
             Controls.AddRange(new Control[] { bIn, bImpFile, bImpNum, bFilter, bSort, bClrRpt, bClrNnum, bClear });
@@ -121,7 +120,7 @@ namespace NumMagic
                 BorderStyle = BorderStyle.None,
                 AutoScroll = true
             };
-            upScroll.HorizontalScroll.Visible = false;
+            upScroll.HorizontalScroll.Visible = true;
             Controls.Add(upScroll);
 
             // 预创建默认 8 窗格在滚动面板内
@@ -166,7 +165,7 @@ namespace NumMagic
                 UpdateAllPanes();
                 HideProgress();
             });
-            bClrRpt2 = Btn("去重", dbx + 62 * 2, dnBtnY, 56, bh2, (s, e) => { int old = xList.Count; xList = xList.Distinct().ToList(); UpdateAllPanes(); MessageBox.Show(string.Format("去重: {0} -> {1}, 移除 {2}", old, xList.Count, old - xList.Count), "完成"); });
+            bClrRpt2 = Btn("去重", dbx + 62 * 2, dnBtnY, 56, bh2, (s, e) => { int old = xList.Count; xList = DedupNorm(xList); UpdateAllPanes(); MessageBox.Show(string.Format("去重: {0} -> {1}, 移除 {2}", old, xList.Count, old - xList.Count), "完成"); });
             bClear2 = Btn("清空", dbx + 62 * 3, dnBtnY, 56, bh2, (s, e) => { xList.Clear(); UpdateAllPanes(); });
             bCompare = Btn("文件对比", dbx + 62 * 4, dnBtnY, 72, bh2, OnCompare);
             bOutAll = Btn("报告", dbx + 62 * 4 + 78, dnBtnY, 56, bh2, OnReport);
@@ -180,7 +179,7 @@ namespace NumMagic
                 BorderStyle = BorderStyle.None,
                 AutoScroll = true
             };
-            dnScroll.HorizontalScroll.Visible = false;
+            dnScroll.HorizontalScroll.Visible = true;
             Controls.Add(dnScroll);
 
             EnsurePanes(dnScroll, dnPanes, "DN", DEFAULT_PANES);
@@ -204,10 +203,6 @@ namespace NumMagic
                 Minimum = 0, Maximum = 100, Visible = false, Style = ProgressBarStyle.Continuous
             };
             Controls.Add(progress);
-
-            worker = new BackgroundWorker { WorkerReportsProgress = true, WorkerSupportsCancellation = true };
-            worker.ProgressChanged += (s, e) => { if (e.UserState is string) { string m = (string)e.UserState; lInfo.Text = m; } progress.Value = e.ProgressPercentage; };
-            worker.RunWorkerCompleted += (s, e) => { progress.Visible = false; UpdateAllPanes(); };
         }
 
         // ── 动态创建窗格 ── 固定2行, 列向右增长(水平滚动)
@@ -582,7 +577,7 @@ namespace NumMagic
                         var num = Clean(line);
                         if (num.Length > 0)
                         {
-                            if (IsAllDigits(num)) newList.Add(num); else localSkip++;
+                            if (num.Length >= 7 && IsAllDigits(num)) newList.Add(num); else localSkip++;
                         }
                         if ((newList.Count + localSkip) % 50000 == 0)
                             ShowProgress(string.Format("已读 {0} {1:n0} 行...", pfx, newList.Count + localSkip), 0);
@@ -602,7 +597,7 @@ namespace NumMagic
                         var num = Clean(line);
                         if (num.Length > 0)
                         {
-                            if (IsAllDigits(num)) newList.Add(num); else localSkip++;
+                            if (num.Length >= 7 && IsAllDigits(num)) newList.Add(num); else localSkip++;
                         }
                         if ((newList.Count + localSkip) % 50000 == 0)
                             ShowProgress(string.Format("已读 {0} {1:n0} 行...", pfx, newList.Count + localSkip), 0);
@@ -621,7 +616,7 @@ namespace NumMagic
             foreach (var line in text.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 var num = Clean(line);
-                if (num.Length > 0) newList.Add(num);
+                if (num.Length >= 7 && IsAllDigits(num)) newList.Add(num);
             }
             int added = AppendUnique(sList, newList);
             HideProgress();
@@ -633,22 +628,26 @@ namespace NumMagic
         // ── 导入：号段 ──
         void OnInput(object sender, EventArgs e)
         {
-            var f = new Form { Text = "输入号段", Size = new Size(400, 240), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+            var f = new Form { Text = "输入号段", Size = new Size(440, 300), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
             f.BackColor = SystemColors.Control;
-            f.Controls.Add(new Label { Text = "前缀:", Left = 20, Top = 20, AutoSize = true });
-            var tbHead = new TextBox { Left = 80, Top = 18, Width = 100 };
+            f.Controls.Add(new Label { Text = "前缀:", Left = 20, Top = 16, AutoSize = true });
+            var tbHead = new TextBox { Left = 80, Top = 14, Width = 100 };
             f.Controls.Add(tbHead);
-            f.Controls.Add(new Label { Text = "起始:", Left = 20, Top = 55, AutoSize = true });
-            var tbStart = new TextBox { Left = 80, Top = 52, Width = 100 };
+            f.Controls.Add(new Label { Text = "起始:", Left = 20, Top = 50, AutoSize = true });
+            var tbStart = new TextBox { Left = 80, Top = 47, Width = 100 };
             f.Controls.Add(tbStart);
-            f.Controls.Add(new Label { Text = "结束:", Left = 200, Top = 55, AutoSize = true });
-            var tbEnd = new TextBox { Left = 250, Top = 52, Width = 100 };
+            f.Controls.Add(new Label { Text = "结束:", Left = 200, Top = 50, AutoSize = true });
+            var tbEnd = new TextBox { Left = 250, Top = 47, Width = 100 };
             f.Controls.Add(tbEnd);
-            f.Controls.Add(new Label { Text = "多行前缀 (每行一个前缀, 与区间组合生成):", Left = 20, Top = 90, AutoSize = true });
-            var tbMulti = new TextBox { Left = 20, Top = 115, Width = 350, Height = 50, Multiline = true, ScrollBars = ScrollBars.Vertical };
+            f.Controls.Add(new Label { Text = "数量(留空=全量生成):", Left = 20, Top = 84, AutoSize = true });
+            var tbCount = new TextBox { Left = 150, Top = 81, Width = 100 };
+            f.Controls.Add(tbCount);
+            f.Controls.Add(new Label { Text = "填数字则从区间内随机抽 N 条不重复号码", Left = 258, Top = 84, AutoSize = true, ForeColor = Color.Gray, Font = new Font("微软雅黑", 8) });
+            f.Controls.Add(new Label { Text = "多行前缀 (每行一个前缀, 与区间组合生成):", Left = 20, Top = 118, AutoSize = true });
+            var tbMulti = new TextBox { Left = 20, Top = 140, Width = 400, Height = 54, Multiline = true, ScrollBars = ScrollBars.Vertical };
             f.Controls.Add(tbMulti);
 
-            var bOk = new Button { Text = "生成", Left = 290, Top = 170, Width = 80 };
+            var bOk = new Button { Text = "生成", Left = 330, Top = 205, Width = 80 };
             bOk.Click += (s2, e2) =>
             {
                 long start = 0, end = 0;
@@ -665,21 +664,61 @@ namespace NumMagic
                 if (heads.Count == 0)
                     heads.Add(tbHead.Text.Trim());
 
+                long want = 0;   // 0 = 全量生成
+                string countTxt = tbCount.Text.Trim();
+                if (countTxt.Length > 0 && !long.TryParse(countTxt, out want))
+                {
+                    MessageBox.Show("数量必须为数字(或留空=全量)", "错误");
+                    return;
+                }
+
+                long total = (end - start + 1) * heads.Count;
+                if (total > 200000000L) { MessageBox.Show(string.Format("生成数量过多 ({0:n0} 条, 超过 2 亿), 请缩小区间或减少前缀。", total), "警告"); return; }
+                // 定量时也不允许超过区间总数
+                if (want > total) want = total;
+
                 Enabled = false;
                 var newList = new List<string>();
-                long total = (end - start + 1) * heads.Count;
-                if (total > 200000000L) { MessageBox.Show(string.Format("生成数量过多 ({0:n0} 条, 超过 2 亿), 请缩小区间或减少前缀。", total), "警告"); Enabled = true; return; }
-                long count = 0;
-                foreach (string h in heads)
+
+                if (want <= 0 || want == total)
                 {
-                    for (long i = start; i <= end; i++)
+                    // ── 全量生成 (原逻辑) ──
+                    long count = 0;
+                    foreach (string h in heads)
                     {
-                        newList.Add(h + i);
-                        count++;
-                        if (count % 100000 == 0 || count == total)
-                            ShowProgress(string.Format("生成 {0:n0}/{1:n0}", count, total), (int)(count * 100 / total));
+                        for (long i = start; i <= end; i++)
+                        {
+                            newList.Add(h + i);
+                            count++;
+                            if (count % 100000 == 0 || count == total)
+                                ShowProgress(string.Format("生成 {0:n0}/{1:n0}", count, total), (int)(count * 100 / total));
+                        }
                     }
                 }
+                else
+                {
+                    // ── 随机抽 want 条, 去重 ──
+                    int n = (int)Math.Min(want, 500000000L);
+                    long span = end - start + 1;
+                    var rnd = new Random();
+                    var chosen = new HashSet<string>();
+                    long guard = 0;
+                    long maxGuard = Math.Max(100000L, (long)n * 20L);
+                    while (chosen.Count < n && guard < maxGuard)
+                    {
+                        guard++;
+                        string h = heads[rnd.Next(heads.Count)];
+                        long v = start + (long)(rnd.NextDouble() * span);
+                        if (v > end) v = end;
+                        string num = h + v;
+                        if (chosen.Add(num)) newList.Add(num);
+                        if (newList.Count % 100000 == 0)
+                            ShowProgress(string.Format("随机生成 {0:n0}/{1:n0}", newList.Count, n), (int)(newList.Count * 100.0 / n));
+                    }
+                    if (newList.Count < n)
+                        MessageBox.Show(string.Format("仅能生成 {0:n0}/{1:n0} 条(区间剩余可去重组合不足)", newList.Count, n), "提示");
+                }
+
                 int added = AppendUnique(sList, newList);
                 HideProgress();
                 Enabled = true;
@@ -688,7 +727,7 @@ namespace NumMagic
                 f.Close();
             };
             f.Controls.Add(bOk);
-            var bCancel = new Button { Text = "取消", Left = 200, Top = 170, Width = 70 };
+            var bCancel = new Button { Text = "取消", Left = 240, Top = 205, Width = 80 };
             bCancel.Click += (cS, cE) => f.Close();
             f.Controls.Add(bCancel);
             f.ShowDialog();
@@ -704,8 +743,8 @@ namespace NumMagic
             var dlg = new OpenFileDialog { Title = "选择对比去重文件", Filter = "文本文件|*.txt|所有文件|*.*" };
             if (dlg.ShowDialog() != DialogResult.OK) return;
 
-            // 原始区号码 → 参照集(黑名单): 对比文件里出现这些 = 重复, 要过滤
-            var refSet = new HashSet<string>(sList);
+            // 原始区号码 → 参照集(黑名单) 按国际归一化建key: 对比文件里出现 = 重复, 过滤
+            var refSet = new HashSet<string>(sList.Select(Norm));
             Enabled = false;
             ShowProgress("对比去重中...", 0);
 
@@ -721,10 +760,10 @@ namespace NumMagic
                     {
                         var num = Clean(line);
                         // 只收纯数字行 (与导入原始区间规则), 字母/备注行过滤掉
-                        if (num.Length > 0 && IsAllDigits(num))
+                        if (num.Length >= 7 && IsAllDigits(num))
                         {
                             total++;
-                            if (refSet.Contains(num)) dupCount++;   // 原始区已有 → 重复, 过滤
+                            if (refSet.Contains(Norm(num))) dupCount++;   // 原始区已有 → 重复, 过滤
                             else keep.Add(num);                      // 原始区没有 → 进目标区
                         }
                         if (total % 200000 == 0) { ShowProgress(string.Format("对比去重中 ({0:n0} 行)...", total), 0); }
@@ -739,10 +778,10 @@ namespace NumMagic
                     while ((line = sr.ReadLine()) != null)
                     {
                         var num = Clean(line);
-                        if (num.Length > 0 && IsAllDigits(num))
+                        if (num.Length >= 7 && IsAllDigits(num))
                         {
                             total++;
-                            if (refSet.Contains(num)) dupCount++;
+                            if (refSet.Contains(Norm(num))) dupCount++;
                             else keep.Add(num);
                         }
                         if (total % 200000 == 0) { ShowProgress(string.Format("对比去重中 ({0:n0} 行)...", total), 0); }
@@ -843,25 +882,45 @@ namespace NumMagic
             f.Controls.Add(bCancel);
             f.ShowDialog();
         }
-        // 按特征移动 (数字长度档位选择弹窗)
+                // 按特征移动 (可自定义号码长度档位; 以国际为主, 长度为含区号的完整号码位数)
         void MoveByFeat(bool down)
         {
             var src = down ? sList : xList;
             var dst = down ? xList : sList;
             if (src.Count == 0) { MessageBox.Show((down ? "原始区" : "目标区") + "为空", "提示"); return; }
-            var f = new Form { Text = (down ? "▼ 按特征移下" : "▲ 按特征移上"), Size = new Size(360, 230), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
-            f.Controls.Add(new Label { Text = "选择要移动的数字长度特征:", Left = 16, Top = 14, AutoSize = true });
-            var rbA = new RadioButton { Text = "长号码(≥13位, 常含国家码)", Left = 24, Top = 44, AutoSize = true, Checked = true };
-            var rbB = new RadioButton { Text = "中国手机(11位 1[3-9]开头)", Left = 24, Top = 72, AutoSize = true };
-            var rbC = new RadioButton { Text = "短号(≤10位)", Left = 24, Top = 100, AutoSize = true };
-            f.Controls.AddRange(new Control[] { rbA, rbB, rbC });
-            var bOk = new Button { Text = "移动", Left = 250, Top = 150, Width = 80 };
+            var f = new Form { Text = (down ? "▼ 按特征移下" : "▲ 按特征移上"), Size = new Size(420, 312), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+            f.Controls.Add(new Label { Text = "按号码长度筛选 (长度为完整号码位数, 已含区号):", Left = 14, Top = 12, AutoSize = true });
+            var rbCustom = new RadioButton { Text = "自定义长度区间", Left = 22, Top = 40, AutoSize = true, Checked = true };
+            f.Controls.Add(rbCustom);
+            f.Controls.Add(new Label { Text = "最小位数:", Left = 180, Top = 42, AutoSize = true });
+            var tbMin = new TextBox { Left = 240, Top = 40, Width = 46 };
+            f.Controls.Add(tbMin);
+            f.Controls.Add(new Label { Text = "最大位数:", Left = 180, Top = 68, AutoSize = true });
+            var tbMax = new TextBox { Left = 240, Top = 66, Width = 46 };
+            f.Controls.Add(tbMax);
+            var rbAll = new RadioButton { Text = "全部长度(不限)", Left = 22, Top = 96, AutoSize = true };
+            var rbShort = new RadioButton { Text = "≤10位 (区号+短号)", Left = 22, Top = 122, AutoSize = true };
+            var rbMid = new RadioButton { Text = "11~12位 (常见国际号)", Left = 22, Top = 148, AutoSize = true };
+            var rbLong = new RadioButton { Text = "≥13位 (长国际号)", Left = 22, Top = 174, AutoSize = true };
+            f.Controls.AddRange(new Control[] { rbAll, rbShort, rbMid, rbLong });
+            f.Controls.Add(new Label { Text = "注: 美国+1本地10位=11位, 中国86+11=13位, 均按含区号计数", Left = 14, Top = 210, AutoSize = true, ForeColor = Color.Gray, Font = new Font(FontFamily.GenericSansSerif, 8) });
+
+            var bOk = new Button { Text = "移动", Left = 316, Top = 244, Width = 80 };
             bOk.Click += (s2, e2) =>
             {
+                Func<string, int> dlen = n => { int c = 0; foreach (char ch in n) if (ch >= '0' && ch <= '9') c++; return c; };
                 Predicate<string> pred;
-                if (rbA.Checked) pred = n => n.Length >= 13;
-                else if (rbB.Checked) pred = n => n.Length == 11 && n[0] == '1' && n[1] >= '3' && n[1] <= '9';
-                else pred = n => n.Length <= 10;
+                if (rbCustom.Checked)
+                {
+                    int mn = 0, mx = int.MaxValue;
+                    if (!string.IsNullOrWhiteSpace(tbMin.Text) && !int.TryParse(tbMin.Text.Trim(), out mn)) { MessageBox.Show("最小位数必须为整数", "错误"); return; }
+                    if (!string.IsNullOrWhiteSpace(tbMax.Text) && !int.TryParse(tbMax.Text.Trim(), out mx)) { MessageBox.Show("最大位数必须为整数", "错误"); return; }
+                    pred = n => dlen(n) >= mn && dlen(n) <= mx;
+                }
+                else if (rbAll.Checked) pred = n => true;
+                else if (rbShort.Checked) pred = n => dlen(n) <= 10;
+                else if (rbMid.Checked) pred = n => { int l = dlen(n); return l >= 11 && l <= 12; };
+                else pred = n => dlen(n) >= 13;
                 List<string> toMove, toKeep;
                 SplitList(src, pred, out toMove, out toKeep);
                 dst.AddRange(toMove);
@@ -871,12 +930,12 @@ namespace NumMagic
                 f.Close();
             };
             f.Controls.Add(bOk);
-            var bCancel = new Button { Text = "取消", Left = 166, Top = 150, Width = 70 };
+            var bCancel = new Button { Text = "取消", Left = 226, Top = 244, Width = 80 };
             bCancel.Click += (cS, cE) => f.Close();
             f.Controls.Add(bCancel);
             f.ShowDialog();
         }
-        // 按类型移动 (号码类型选择弹窗)
+// 按类型移动 (号码类型选择弹窗)
         void MoveByType(bool down)
         {
             var src = down ? sList : xList;
@@ -894,7 +953,9 @@ namespace NumMagic
             {
                 Predicate<string> pred;
                 if (rbA.Checked)
-                    pred = n => !string.IsNullOrEmpty(n) && ((n.StartsWith("+") && !n.StartsWith("+86")) || n.StartsWith("00"));
+                    // 清洗后号码已去 +；按国际归一口径判定：非中国号码 && (00开头 或 带区号≥11位)
+                    pred = n => !string.IsNullOrEmpty(n) && !IsChineseNumber(n)
+                                && (n.StartsWith("00") || n.Length >= 11);
                 else if (rbB.Checked)
                     pred = n => !string.IsNullOrEmpty(n) && IsChineseNumber(n);
                 else
@@ -924,15 +985,25 @@ namespace NumMagic
 
         // 保序合并去重: 把 newItems 追加到 list, 去掉与 list 已有重复的项(保持原始顺序)
         // 返回实际新增数量。避免多次导入混入重复。
+        // 去重key用国际归一化: 同号不同写法(+86138../86138../138..)算同一条, 保留最先写法
         static int AppendUnique(List<string> list, IEnumerable<string> newItems)
         {
-            var seen = new HashSet<string>(list);
+            var seen = new HashSet<string>(list.Select(Norm));
             int added = 0;
             foreach (var n in newItems)
             {
-                if (n.Length > 0 && seen.Add(n)) { list.Add(n); added++; }
+                string k = Norm(n);
+                if (!string.IsNullOrEmpty(k) && seen.Add(k)) { list.Add(n); added++; }
             }
             return added;
+        }
+
+        // ── 去重(国际归一口径)：同号不同写法算同一条, 保留最先出现的写法 ──
+        static List<string> DedupNorm(List<string> list)
+        {
+            var byNorm = new Dictionary<string, string>();
+            foreach (var n in list) { string k = Norm(n); if (!byNorm.ContainsKey(k)) byNorm[k] = n; }
+            return byNorm.Values.ToList();
         }
 
         // ── 文件对比 ──
@@ -952,7 +1023,7 @@ namespace NumMagic
                     while ((line = sr.ReadLine()) != null)
                     {
                         var num = Clean(line);
-                        if (num.Length > 0) set.Add(num);
+                        if (num.Length >= 7 && IsAllDigits(num)) set.Add(Norm(num));
                     }
                 }
             }
@@ -964,12 +1035,12 @@ namespace NumMagic
                     while ((line = sr.ReadLine()) != null)
                     {
                         var num = Clean(line);
-                        if (num.Length > 0) set.Add(num);
+                        if (num.Length >= 7 && IsAllDigits(num)) set.Add(Norm(num));
                     }
                 }
             }
             int both = 0, onlyLocal = 0, onlyFile = 0;
-            foreach (var n in xList) if (set.Contains(n)) both++;
+            foreach (var n in xList) if (set.Contains(Norm(n))) both++;
             onlyLocal = xList.Count - both;
             onlyFile = set.Count - both;
             HideProgress();
@@ -982,7 +1053,10 @@ namespace NumMagic
         void OnReport(object sender, EventArgs e)
         {
             if (xList.Count == 0) { MessageBox.Show("目标区为空", "提示"); return; }
-            var sorted = xList.Distinct().OrderBy(n => n).ToList();
+            // 去重按国际归一回并(同号不同写法算同一条), 保留最先出现的写法
+            var byNorm = new Dictionary<string, string>();
+            foreach (var n in xList) { string k = Norm(n); if (!byNorm.ContainsKey(k)) byNorm[k] = n; }
+            var sorted = byNorm.Values.OrderBy(n => n).ToList();
             var sb = new StringBuilder();
             sb.AppendLine(string.Format("目标区报告 — {0:n0} 条号码 (去重后)", sorted.Count));
             sb.AppendLine(new string('-', 40));
@@ -991,7 +1065,8 @@ namespace NumMagic
             var seg = new Dictionary<string, int>();
             foreach (var n in sorted)
             {
-                string key = n.Length >= 7 ? n.Substring(0, 7) : n;
+                string nn = Norm(n);
+                string key = nn.Length >= 7 ? nn.Substring(0, 7) : nn;
                 if (!seg.ContainsKey(key)) seg[key] = 0;
                 seg[key]++;
             }
@@ -1135,31 +1210,35 @@ namespace NumMagic
         // ── 帮助 ──
         void OnHelp(object sender, EventArgs e)
         {
-            string msg = @"龙哥数据_筛选 v4.2
+            string msg = @"龙哥数据_筛选 v4.3
 【基本操作】
-• 导入文件：支持 txt/csv (UTF-8/GBK)
+• 导入文件：支持 txt/csv (UTF-8/GBK)，只收纯数字≥7位，自动去重
 • 导入号码：从剪贴板粘贴
-• 输入号段：按前缀+区间批量生成
+• 输入号段：前缀+区间批量生成；【数量】可填，填N=从区间随机抽N条不重复
 
 【核心功能】
-• 对比去重：原始区(导入文件)的号码 与 对比去重文件 对比，命中(重复)过滤移除，未重复进目标区
-• 排序/乱序：按号码排序或随机打乱
-• 去重：删除重复号码
+• 对比去重：对比文件 − 原始区，命中(原始区已有)移除，未重复进目标区
+• 排序↑↓/乱序：按号码排序或随机打乱
+• 去重：按国际归一(同号不同写法算重复)删除
 • 清除非号：只保留纯数字>=7位
 
+【判定口径(国际为主)】
+• 去重/对比/报告 均按国际归一口径：+86138../0086138../138.. 视为同一号
+• 按类型-国际号 = 非中国号码 且(00开头 或 含区号≥11位)；中国大陆=86/11位国内号
+• 按特征 = 自定义最小/最大位数(可留空不限)；≤10/11-12/≥13 为快捷档
+
 【窗格说明】
-• 默认 8 窗格(每窗 20 万=160 万/区)
-• 超 160 万自动增窗 + 滚动查看
-• 上限 1000 万，可选显示超上限
+• 默认 8 窗格(每窗 20 万=160 万/区)，可横向滚动查看
+• 超 160 万自动增窗；上限 1000 万，可选显示超上限
 • 双击窗格内号码可移入/移出
 
 【移动操作】
 • 8 个方向按钮：全部/按值/按特征/按类型 上下移动
-• 按值/按特征/按类型 都会弹出选择窗口再移动
+• 按值(号码/区号/子串多行)/按特征(位数)/按类型 均弹窗选择后再移动
 
 【导出】
 • 导出全部 / 分批导出(每批数量可自填) / 按需导出(选开始到结束行)
-• 报告：号段分布 TOP20 + 样本
+• 报告：号段分布 TOP20 + 样本(国际归一口径)
 
 【快捷键】Delete 删除选中
 ";
